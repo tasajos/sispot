@@ -240,6 +240,8 @@ app.delete('/api/catalogos/otbs/:id', (req, res) => {
     });
 });
 
+
+
 // K. ELIMINAR PROBLEMA
 app.delete('/api/catalogos/problemas/:id', (req, res) => {
     const { id } = req.params;
@@ -247,6 +249,62 @@ app.delete('/api/catalogos/problemas/:id', (req, res) => {
     db.query(sql, [id], (err, result) => {
         if (err) return res.status(500).send(err);
         res.json({ message: "Problema eliminado" });
+    });
+});
+
+
+// L. ACTUALIZAR OTB (PUT)
+app.put('/api/catalogos/otbs/:id', (req, res) => {
+    const { nombre, distrito_id } = req.body;
+    const { id } = req.params;
+    const sql = "UPDATE otbs SET nombre = ?, distrito_id = ? WHERE id = ?";
+    db.query(sql, [nombre, distrito_id, id], (err, result) => {
+        if (err) return res.status(500).send(err);
+        res.json({ message: "OTB actualizada correctamente" });
+    });
+});
+
+// M. OBTENER DIAGNÓSTICO (Problemas por OTB)
+app.get('/api/catalogos/diagnostico', (req, res) => {
+    const sql = `
+        SELECT diag.id, o.nombre as otb, d.nombre as distrito, p.nombre as problema, a.nombre as area, diag.prioridad, a.icono
+        FROM diagnostico_otb diag
+        JOIN otbs o ON diag.otb_id = o.id
+        JOIN distritos d ON o.distrito_id = d.id
+        JOIN tipos_problema p ON diag.problema_id = p.id
+        JOIN areas_tematicas a ON p.area_id = a.id
+        ORDER BY d.id, o.nombre
+    `;
+    db.query(sql, (err, result) => {
+        if (err) return res.status(500).send(err);
+        res.json(result);
+    });
+});
+
+// N. ASIGNAR PROBLEMA A OTB (POST)
+app.post('/api/catalogos/diagnostico', (req, res) => {
+    const { otb_id, problema_id, prioridad } = req.body;
+    // Evitar duplicados
+    const check = "SELECT * FROM diagnostico_otb WHERE otb_id = ? AND problema_id = ?";
+    db.query(check, [otb_id, problema_id], (err, result) => {
+        if (err) return res.status(500).send(err);
+        if (result.length > 0) return res.status(400).json({ message: "Este problema ya está asignado a la OTB" });
+
+        const sql = "INSERT INTO diagnostico_otb (otb_id, problema_id, prioridad) VALUES (?, ?, ?)";
+        db.query(sql, [otb_id, problema_id, prioridad], (err2, result2) => {
+            if (err2) return res.status(500).send(err2);
+            res.json({ message: "Problema asignado a la OTB" });
+        });
+    });
+});
+
+// O. ELIMINAR DIAGNÓSTICO (DELETE)
+app.delete('/api/catalogos/diagnostico/:id', (req, res) => {
+    const { id } = req.params;
+    const sql = "DELETE FROM diagnostico_otb WHERE id = ?";
+    db.query(sql, [id], (err, result) => {
+        if (err) return res.status(500).send(err);
+        res.json({ message: "Diagnóstico eliminado" });
     });
 });
 
