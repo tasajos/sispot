@@ -170,6 +170,87 @@ app.post('/api/catalogos/distritos', (req, res) => {
     });
 });
 
+// E. CREAR NUEVA OTB (Asociada a Distrito)
+app.post('/api/catalogos/otbs', (req, res) => {
+    const { nombre, distrito_id } = req.body;
+    if (!nombre || !distrito_id) {
+        return res.status(400).json({ message: "Datos incompletos" });
+    }
+    const sql = "INSERT INTO otbs (nombre, distrito_id) VALUES (?, ?)";
+    db.query(sql, [nombre, distrito_id], (err, result) => {
+        if (err) return res.status(500).send(err);
+        res.json({ message: "OTB registrada correctamente", id: result.insertId });
+    });
+});
+
+// F. CREAR TIPO DE PROBLEMA (Asociado a Área)
+app.post('/api/catalogos/problemas', (req, res) => {
+    const { nombre, area_id } = req.body;
+    if (!nombre || !area_id) {
+        return res.status(400).json({ message: "Datos incompletos" });
+    }
+    const sql = "INSERT INTO tipos_problema (nombre, area_id) VALUES (?, ?)";
+    db.query(sql, [nombre, area_id], (err, result) => {
+        if (err) return res.status(500).send(err);
+        res.json({ message: "Tipo de problema registrado", id: result.insertId });
+    });
+});
+
+// G. EXTRA: OBTENER PROBLEMAS (Para verlos en la lista)
+app.get('/api/catalogos/problemas', (req, res) => {
+    const sql = `
+        SELECT p.id, p.nombre, a.nombre as area 
+        FROM tipos_problema p 
+        JOIN areas_tematicas a ON p.area_id = a.id
+    `;
+    db.query(sql, (err, result) => {
+        if (err) return res.status(500).send(err);
+        res.json(result);
+    });
+});
+
+// H. ACTUALIZAR DISTRITO (PUT)
+app.put('/api/catalogos/distritos/:id', (req, res) => {
+    const { nombre, zona, poblacion_est } = req.body;
+    const { id } = req.params;
+    const sql = "UPDATE distritos SET nombre = ?, zona = ?, poblacion_est = ? WHERE id = ?";
+    db.query(sql, [nombre, zona, poblacion_est, id], (err, result) => {
+        if (err) return res.status(500).send(err);
+        res.json({ message: "Distrito actualizado" });
+    });
+});
+
+// I. ELIMINAR DISTRITO (DELETE)
+app.delete('/api/catalogos/distritos/:id', (req, res) => {
+    const { id } = req.params;
+    const sql = "DELETE FROM distritos WHERE id = ?";
+    db.query(sql, [id], (err, result) => {
+        if (err) return res.status(500).send(err);
+        res.json({ message: "Distrito eliminado" });
+    });
+});
+
+// J. ELIMINAR OTB
+app.delete('/api/catalogos/otbs/:id', (req, res) => {
+    const { id } = req.params;
+    const sql = "DELETE FROM otbs WHERE id = ?";
+    db.query(sql, [id], (err, result) => {
+        if (err) return res.status(500).send(err);
+        res.json({ message: "OTB eliminada" });
+    });
+});
+
+// K. ELIMINAR PROBLEMA
+app.delete('/api/catalogos/problemas/:id', (req, res) => {
+    const { id } = req.params;
+    const sql = "DELETE FROM tipos_problema WHERE id = ?";
+    db.query(sql, [id], (err, result) => {
+        if (err) return res.status(500).send(err);
+        res.json({ message: "Problema eliminado" });
+    });
+});
+
+
 // --- 3. INICIAR SERVIDOR ---
 app.listen(PORT, () => {
     console.log(`🚀 Servidor backend corriendo en http://localhost:${PORT}`);
