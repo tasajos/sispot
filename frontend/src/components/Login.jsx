@@ -1,70 +1,93 @@
 import { useState } from 'react';
 import axios from 'axios';
+// Importamos íconos de Lucide (ya lo instalamos antes)
+import { User, Lock, Eye, EyeOff } from 'lucide-react';
+import './styles/Login.css';
 
 const Login = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false); // Estado para el ojito
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
     try {
-      // Petición al backend
+      // NOTA: Asegúrate de que el puerto sea el correcto (3310 según tu configuración anterior)
       const res = await axios.post('http://localhost:3310/api/login', {
         email,
         password
       });
 
       if (res.data.success) {
-        // Pasamos el usuario al componente padre (App.jsx)
         onLogin(res.data.user);
       }
     } catch (err) {
-      // Manejo de errores
-      if (err.response) {
-        setError(err.response.data.message);
-      } else {
-        setError("Error de conexión con el servidor");
-      }
+      setError(err.response?.data?.message || "Error de conexión con el servidor");
+      setLoading(false);
     }
   };
 
   return (
-    <div className="flex items-center justify-center h-screen bg-gray-800">
-      <div className="bg-white p-8 rounded-lg shadow-lg w-96">
-        <h2 className="text-2xl font-bold text-center mb-6 text-gray-700">🔐 Acceso Campaña</h2>
+    <div className="login-wrapper">
+      <div className="login-box">
+        {/* Ícono superior grande */}
+        <div className="login-header-icon">
+          <User size={64} strokeWidth={1.5} />
+        </div>
         
-        {error && <div className="bg-red-100 text-red-700 p-2 rounded mb-4 text-sm">{error}</div>}
+        {/* Mensaje de Error */}
+        {error && <div className="login-error">{error}</div>}
 
         <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-bold mb-2">Correo</label>
+          {/* Input Grupo: Usuario */}
+          <div className="input-group">
+            <User className="input-icon-left" size={20} />
             <input 
               type="email" 
-              className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Correo electrónico"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@cocha.bo"
               required
             />
           </div>
-          <div className="mb-6">
-            <label className="block text-gray-700 text-sm font-bold mb-2">Contraseña</label>
+
+          {/* Input Grupo: Contraseña */}
+          <div className="input-group">
+            <Lock className="input-icon-left" size={20} />
             <input 
-              type="password" 
-              className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              type={showPassword ? "text" : "password"} 
+              placeholder="Contraseña"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
             />
+            {/* Botón del ojito para ver password */}
+            <button 
+              type="button"
+              className="input-icon-right-btn"
+              onClick={() => setShowPassword(!showPassword)}
+            >
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
           </div>
-          <button 
-            type="submit" 
-            className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 transition"
-          >
-            Ingresar
+
+          {/* Opciones (Recordarme / Olvidé contraseña) */}
+          <div className="login-options">
+            <label className="flex items-center cursor-pointer">
+              <input type="checkbox" className="mr-2 accent-blue-500" />
+              <span className="text-sm text-gray-600">Recordarme</span>
+            </label>
+            <a href="#" className="text-sm text-blue-500 hover:underline">¿Olvidaste la contraseña?</a>
+          </div>
+
+          {/* Botón Submit */}
+          <button type="submit" className="login-btn" disabled={loading}>
+            {loading ? 'Verificando...' : 'INGRESAR'}
           </button>
         </form>
       </div>

@@ -1,0 +1,151 @@
+/* src/Login.css */
+
+/* Fondo de pantalla completa con degradado azul profesional */
+.login-wrapper {
+  background: linear-gradient(135deg, #eef6fc 0%, #dbeafe 100%);
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: fixed; /* Asegura que cubra todo, incluso si hay scroll */
+  top: 0;
+  left: 0;
+  z-index: 1000; /* Siempre encima de todo */
+}
+
+/* La tarjeta blanca central */
+.login-box {
+  background-color: rgba(255, 255, 255, 0.98);
+  padding: 40px 30px;
+  border-radius: 20px;
+  box-shadow: 0 10px 40px -10px rgba(59, 130, 246, 0.3);
+  width: 90%; /* Responsive en móvil */
+  max-width: 400px; /* Ancho fijo en PC */
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Ícono de cabecera */
+.login-header-icon {
+  color: #2563eb;
+  margin-bottom: 25px;
+  display: flex;
+  justify-content: center;
+  animation: fadeInDown 0.5s ease-out;
+}
+
+/* Mensaje de error */
+.login-error {
+  background-color: #fef2f2;
+  color: #ef4444;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  margin-bottom: 20px;
+  border: 1px solid #fee2e2;
+  text-align: left;
+}
+
+/* Inputs y sus contenedores */
+.input-group {
+  position: relative;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 14px 15px 14px 45px; /* Espacio para el ícono */
+  border: 2px solid #e2e8f0;
+  background-color: #f8fafc;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  color: #334155;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.input-group input:focus {
+  border-color: #3b82f6;
+  background-color: #fff;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+}
+
+/* Íconos dentro del input */
+.input-icon-left {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none; /* Click atraviesa el ícono */
+}
+
+.input-group input:focus ~ .input-icon-left {
+  color: #3b82f6;
+}
+
+/* Botón de ver contraseña */
+.input-icon-right-btn {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+.input-icon-right-btn:hover { color: #64748b; }
+
+/* Opciones extra */
+.login-options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+.login-options a { color: #2563eb; text-decoration: none; font-weight: 500; }
+.login-options a:hover { text-decoration: underline; }
+
+/* Botón principal */
+.login-btn {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(to right, #2563eb, #1d4ed8);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.2s;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+}
+
+.login-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 15px rgba(37, 99, 235, 0.3);
+}
+
+.login-btn:active {
+  transform: translateY(0);
+}
+
+.login-btn:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Animación simple */
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
