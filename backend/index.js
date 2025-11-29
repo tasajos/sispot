@@ -154,6 +154,22 @@ app.get('/api/catalogos/areas', (req, res) => {
     });
 });
 
+// D. CREAR NUEVO DISTRITO
+app.post('/api/catalogos/distritos', (req, res) => {
+    const { nombre, zona, poblacion_est } = req.body;
+    
+    // Validación básica
+    if (!nombre || !zona) {
+        return res.status(400).json({ message: "Nombre y Zona son obligatorios" });
+    }
+
+    const sql = "INSERT INTO distritos (nombre, zona, poblacion_est) VALUES (?, ?, ?)";
+    db.query(sql, [nombre, zona, poblacion_est || 0], (err, result) => {
+        if (err) return res.status(500).send(err);
+        res.json({ message: "Distrito registrado correctamente", id: result.insertId });
+    });
+});
+
 // --- 3. INICIAR SERVIDOR ---
 app.listen(PORT, () => {
     console.log(`🚀 Servidor backend corriendo en http://localhost:${PORT}`);
