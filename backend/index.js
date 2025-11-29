@@ -34,6 +34,44 @@ db.connect((err) => {
 
 // --- 2. RUTAS DE LA API ---
 
+// 1. LOGIN: Verificar credenciales
+app.post('/api/login', (req, res) => {
+    const { email, password } = req.body;
+    
+    // Buscar usuario por email
+    const sql = "SELECT * FROM usuarios WHERE email = ?";
+    db.query(sql, [email], (err, result) => {
+        if (err) return res.status(500).send(err);
+        
+        // Si no existe el usuario
+        if (result.length === 0) {
+            return res.status(401).json({ message: "Usuario no encontrado" });
+        }
+
+        const usuario = result[0];
+
+        // Verificar contraseña (SIMPLE para este ejemplo, en real usar bcrypt)
+        if (password === usuario.password) {
+            // ¡Login exitoso! Devolvemos los datos del usuario (sin el password)
+            const { password, ...datosUsuario } = usuario;
+            res.json({ success: true, user: datosUsuario });
+        } else {
+            res.status(401).json({ message: "Contraseña incorrecta" });
+        }
+    });
+});
+
+// 2. LISTAR USUARIOS (Solo para Admins - lo usaremos luego)
+app.get('/api/usuarios', (req, res) => {
+    const sql = "SELECT id, nombre, email, rol, cargo, telefono FROM usuarios";
+    db.query(sql, (err, result) => {
+        if (err) return res.status(500).send(err);
+        res.json(result);
+    });
+});
+
+
+
 // RUTA A: Actividades
 app.get('/api/actividades', (req, res) => {
     const sql = "SELECT * FROM actividades ORDER BY fecha_evento ASC";
@@ -62,6 +100,9 @@ app.get('/api/analisis/distritos', (req, res) => {
         res.json(result);
     });
 });
+
+
+
 
 // RUTA D: Competidores
 app.get('/api/competidores', (req, res) => {

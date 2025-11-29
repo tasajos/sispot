@@ -1,12 +1,39 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import TableroGestion from './components/TableroGestion';
 import AnalisisDatos from './components/AnalisisDatos';
 import Competidores from './components/Competidores';
+import Login from './components/Login';
+
 import './App.css'; // Usaremos esto para darle estilo rápido
 
 function App() {
   const [vistaActual, setVistaActual] = useState('gestion');
+  const [usuario, setUsuario] = useState(null); // Estado para el usuario logueado
 
+  // Verificar si ya había iniciado sesión (persistencia básica)
+  useEffect(() => {
+    const usuarioGuardado = localStorage.getItem('usuario_campaña');
+    if (usuarioGuardado) {
+      setUsuario(JSON.parse(usuarioGuardado));
+    }
+  }, []);
+
+const handleLogin = (datosUsuario) => {
+    setUsuario(datosUsuario);
+    localStorage.setItem('usuario_campaña', JSON.stringify(datosUsuario)); // Guardar en navegador
+  };
+
+  const handleLogout = () => {
+    setUsuario(null);
+    localStorage.removeItem('usuario_campaña');
+  };
+
+  // SI NO HAY USUARIO, MOSTRAMOS LOGIN
+  if (!usuario) {
+    return <Login onLogin={handleLogin} />;
+  }
+
+  // SI HAY USUARIO, MOSTRAMOS EL SISTEMA
   const renderizarVista = () => {
     switch (vistaActual) {
       case 'gestion': return <TableroGestion />;
@@ -16,41 +43,40 @@ function App() {
     }
   };
 
+
   return (
     <div className="app-container">
-      {/* BARRA LATERAL (SIDEBAR) */}
       <aside className="sidebar">
         <div className="logo-area">
           <h2>🏛️ Alcaldía Cocha</h2>
-          <p>Sistema de Campaña</p>
+          <p className="text-xs text-gray-400 mt-1">Hola, {usuario.nombre}</p>
+          <span className="text-xs bg-blue-900 px-2 py-1 rounded mt-2 inline-block">
+             {usuario.cargo}
+          </span>
         </div>
         <nav>
-          <button 
-            className={vistaActual === 'gestion' ? 'active' : ''} 
-            onClick={() => setVistaActual('gestion')}
-          >
-            📋 Gestión de Campaña
-          </button>
-          <button 
-            className={vistaActual === 'analisis' ? 'active' : ''} 
-            onClick={() => setVistaActual('analisis')}
-          >
-            📊 Análisis de Datos
-          </button>
-          <button 
-            className={vistaActual === 'competidores' ? 'active' : ''} 
-            onClick={() => setVistaActual('competidores')}
-          >
-            🕵️ Perfil Competencia
+          <button onClick={() => setVistaActual('gestion')} className={vistaActual === 'gestion' ? 'active' : ''}>📋 Gestión</button>
+          
+          {/* Ejemplo de restricción por ROL: Solo Admin y Tecnico ven Analisis */}
+          {usuario.rol !== 'consulta' && (
+             <button onClick={() => setVistaActual('analisis')} className={vistaActual === 'analisis' ? 'active' : ''}>📊 Análisis</button>
+          )}
+          
+          <button onClick={() => setVistaActual('competidores')} className={vistaActual === 'competidores' ? 'active' : ''}>🕵️ Competencia</button>
+          
+          {/* Botón Salir */}
+          <button onClick={handleLogout} style={{marginTop: 'auto', borderTop: '1px solid #34495e', color: '#e74c3c'}}>
+            🚪 Cerrar Sesión
           </button>
         </nav>
       </aside>
 
-      {/* ÁREA PRINCIPAL */}
       <main className="main-content">
         <header>
-          <h1>Panel de Control - Candidato</h1>
-          <div className="user-info">Usuario: Jefe de Campaña</div>
+          <h1>Panel de Control</h1>
+          <div className="text-sm text-gray-600">
+             Rol: <strong>{usuario.rol.toUpperCase()}</strong>
+          </div>
         </header>
         <div className="content-body">
           {renderizarVista()}
