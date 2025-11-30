@@ -205,6 +205,12 @@ app.get('/api/dashboard/resumen', (req, res) => {
     });
 });
 
+
+
+
+
+
+
 // Z. DASHBOARD COMPLETO
 app.get('/api/dashboard/data', (req, res) => {
     
@@ -246,6 +252,174 @@ app.get('/api/dashboard/data', (req, res) => {
             });
         });
     });
+});
+
+
+// LISTAR CANDIDATOS
+app.get('/api/candidatos', (req, res) => {
+    const sql = `
+      SELECT id, nombre, sigla,
+             habilidad_crisis,
+             habilidad_dialogo,
+             habilidad_tecnica,
+             habilidad_comunicacion,
+             habilidades_texto
+      FROM candidatos
+      ORDER BY nombre ASC
+    `;
+    db.query(sql, (err, r) => err ? res.status(500).send(err) : res.json(r));
+});
+
+// REGISTRAR CANDIDATO
+app.post('/api/candidatos', (req, res) => {
+    const {
+        nombre,
+        sigla,
+        habilidad_crisis,
+        habilidad_dialogo,
+        habilidad_tecnica,
+        habilidad_comunicacion,
+        habilidades_texto
+    } = req.body;
+
+    const sql = `
+      INSERT INTO candidatos
+      (nombre, sigla, habilidad_crisis, habilidad_dialogo, habilidad_tecnica, habilidad_comunicacion, habilidades_texto)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    db.query(sql, [
+        nombre,
+        sigla,
+        habilidad_crisis,
+        habilidad_dialogo,
+        habilidad_tecnica,
+        habilidad_comunicacion,
+        habilidades_texto || null
+    ], (err, r) => {
+        if (err) return res.status(500).send(err);
+        res.json({ message: "Candidato registrado", id: r.insertId });
+    });
+});
+
+// (Opcional) ELIMINAR CANDIDATO
+app.delete('/api/candidatos/:id', (req, res) => {
+    db.query("DELETE FROM candidatos WHERE id = ?", [req.params.id],
+        (err) => err ? res.status(500).send(err) : res.json({ message: "Candidato eliminado" })
+    );
+});
+
+
+// -------- SIMULACIÓN DE TOMA DE DECISIONES --------
+
+// Mapa de escenarios y ponderaciones de habilidades
+const ESCENARIOS = {
+    manifestacion: {
+        nombre: "Manifestación vecinal",
+        pesos: {
+            habilidad_crisis: 0.4,
+            habilidad_dialogo: 0.2,
+            habilidad_tecnica: 0.0,
+            habilidad_comunicacion: 0.4
+        }
+    },
+    huelga: {
+        nombre: "Huelga de trabajadores municipales",
+        pesos: {
+            habilidad_crisis: 0.2,
+            habilidad_dialogo: 0.5,
+            habilidad_tecnica: 0.1,
+            habilidad_comunicacion: 0.2
+        }
+    },
+    desastre: {
+        nombre: "Desastre natural / inundación",
+        pesos: {
+            habilidad_crisis: 0.5,
+            habilidad_dialogo: 0.1,
+            habilidad_tecnica: 0.3,
+            habilidad_comunicacion: 0.1
+        }
+    }
+};
+
+// SIMULAR TOMA DE DECISIONES EN UN ESCENARIO
+app.post('/api/candidatos/simular-decision', (req, res) => {
+    const { escenario } = req.body;
+
+    if (!ESCENARIOS[escenario]) {
+        return res.status(400).json({ message: "Escenario no válido" });
+    }
+
+    const { pesos, nombre } = ESCENARIOS[escenario];
+
+    const sql = `
+      SELECT id, nombre, sigla,
+             habilidad_crisis,
+             habilidad_dialogo,
+             habilidad_tecnica,
+             habilidad_comunicacion
+      FROM candidatos
+    `;
+
+    db.query(sql, (err, candidatos) => {
+        if (err) return res.status(500).send(err);
+        if (candidatos.length === 0) return res.json({ escenario: nombre, resultados: [] });
+
+        const resultados = candidatos.map(c => {
+            const score =
+                c.habilidad_crisis * pesos.habilidad_crisis +
+                c.habilidad_dialogo * pesos.habilidad_dialogo +
+                c.habilidad_tecnica * pesos.habilidad_tecnica +
+                c.habilidad_comunicacion * pesos.habilidad_comunicacion;
+
+            return { ...c, score: Number(score.toFixed(2)) };
+        }).sort((a, b) => b.score - a.score);
+
+        res.json({ escenario: nombre, resultados });
+    });
+});
+
+// -------- SIMULACIÓN DE MEJOR CANDIDATO PARA ALCALDÍA --------
+
+app.get('/api/candidatos/simular-mejor', (req, res) => {
+    const sql = `
+      SELECT id, nombre, sigla,
+             habilidad_crisis,
+             habilidad_dialogo,
+             habilidad_tecnica,
+             habilidad_comunicacion
+      FROM candidatos
+    `;
+
+    db.query(sql, (err, candidatos) => {
+        if (err) return res.status(500).send(err);
+        if (candidatos.length === 0) return res.json({ resultados: [] });
+
+        const resultados = candidatos.map(c => {
+            const promedio =
+                (c.habilidad_crisis +
+                 c.habilidad_dialogo +
+                 c.habilidad_tecnica +
+                 c.habilidad_comunicacion) / 4;
+
+            return { ...c, score: Number(promedio.toFixed(2)) };
+        }).sort((a, b) => b.score - a.score);
+
+        res.json({
+            titulo: "Ranking integral de candidatos para la Alcaldía de Cochabamba",
+            resultados
+        });
+    });
+});
+
+// ELIMINAR CANDIDATO
+app.delete('/api/candidatos/:id', (req, res) => {
+  const { id } = req.params;
+  db.query("DELETE FROM candidatos WHERE id = ?", [id], (err) => {
+    if (err) return res.status(500).send(err);
+    res.json({ message: "Candidato eliminado" });
+  });
 });
 
 app.listen(PORT, () => console.log(`🚀 Server en http://localhost:${PORT}`));

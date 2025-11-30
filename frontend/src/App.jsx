@@ -8,6 +8,8 @@ import { LayoutDashboard, BarChart3, Users, LogOut, Menu, User, Database , Layou
 import Dashboard from './components/Dashboard';
 import { Button, Nav, Navbar } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import Candidatos from './components/Candidatos';
+import { UserCheck } from 'lucide-react'; // opcional, si lo quieres
 import './App.css'; // Importamos nuestro CSS Grid
 
 function App() {
@@ -73,12 +75,21 @@ function App() {
           </Nav.Item>
 
           <Nav.Item className="mb-1">
+        <Nav.Link active={vistaActual === 'candidatos'} onClick={() => setVistaActual('candidatos')} className="text-white d-flex align-items-center gap-3 py-2 px-3 rounded hover-bright">
+        <User size={20} /> <span className="text-nowrap">Candidato</span>
+        </Nav.Link>
+        </Nav.Item>
+        
+
+
+          <Nav.Item className="mb-1">
             <Nav.Link active={vistaActual === 'competidores'} onClick={() => setVistaActual('competidores')} className="text-white d-flex align-items-center gap-3 py-2 px-3 rounded hover-bright">
               <Users size={20}/> <span className="text-nowrap">Competencia</span>
             </Nav.Link>
           </Nav.Item>
         </Nav>
 
+        
         <div className="p-3 border-top border-secondary bg-dark bg-opacity-50">
             <div className="d-flex align-items-center gap-2 mb-3">
                 <div className="bg-primary rounded-circle d-flex align-items-center justify-content-center text-white" style={{width:35, height:35}}>
@@ -107,6 +118,7 @@ function App() {
                   {vistaActual === 'analisis' && 'Inteligencia de Datos'}
                   {vistaActual === 'competidores' && 'Radar de Competencia'}
                   {vistaActual === 'catalogos' && 'Catálogos Municipales'}
+                  {vistaActual === 'candidatos' && 'Simulación de Candidato'}
                </h5>
            </div>
         </Navbar>
@@ -118,6 +130,7 @@ function App() {
             {vistaActual === 'analisis' && <AnalisisDatos />}
             {vistaActual === 'competidores' && <Competidores />}
             {vistaActual === 'catalogos' && <Catalogos />}
+              {vistaActual === 'candidatos' && <Candidatos />}
         </div>
       </div>
     </div>
