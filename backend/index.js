@@ -172,4 +172,80 @@ app.delete('/api/catalogos/diagnostico/:id', (req, res) => {
     db.query("DELETE FROM diagnostico_otb WHERE id = ?", [req.params.id], (err) => err ? res.status(500).send(err) : res.json({ message: "Eliminado" }));
 });
 
+
+// Z. DASHBOARD RESUMEN
+app.get('/api/dashboard/resumen', (req, res) => {
+    // Consulta 1: Conteos Generales
+    const sqlConteos = `
+        SELECT 
+            (SELECT COUNT(*) FROM subalcaldias) as total_subalcaldias,
+            (SELECT COUNT(*) FROM distritos) as total_distritos,
+            (SELECT COUNT(*) FROM otbs) as total_otbs
+    `;
+
+    // Consulta 2: Problemas por Área
+    const sqlAreas = `
+        SELECT a.nombre, a.icono, COUNT(p.id) as total_problemas 
+        FROM areas_tematicas a 
+        LEFT JOIN tipos_problema p ON a.id = p.area_id 
+        GROUP BY a.id
+    `;
+
+    db.query(sqlConteos, (err, resultConteos) => {
+        if (err) return res.status(500).send(err);
+        
+        db.query(sqlAreas, (err2, resultAreas) => {
+            if (err2) return res.status(500).send(err2);
+            
+            res.json({
+                resumen: resultConteos[0],
+                areas: resultAreas
+            });
+        });
+    });
+});
+
+// Z. DASHBOARD COMPLETO
+app.get('/api/dashboard/data', (req, res) => {
+    
+    // 1. Contadores Generales (KPIs)
+    const sqlConteos = `
+        SELECT 
+            (SELECT COUNT(*) FROM subalcaldias) as total_subalcaldias,
+            (SELECT COUNT(*) FROM distritos) as total_distritos,
+            (SELECT COUNT(*) FROM otbs) as total_otbs
+    `;
+
+    // 2. Problemas Identificados (Diagnósticos con toda la jerarquía)
+    const sqlProblemas = `
+        SELECT 
+            diag.id, diag.prioridad, 
+            p.nombre as problema, 
+            a.nombre as area, 
+            o.nombre as otb, 
+            d.nombre as distrito, 
+            s.nombre as subalcaldia, s.responsable as subalcalde
+        FROM diagnostico_otb diag
+        JOIN tipos_problema p ON diag.problema_id = p.id
+        JOIN areas_tematicas a ON p.area_id = a.id
+        JOIN otbs o ON diag.otb_id = o.id
+        JOIN distritos d ON o.distrito_id = d.id
+        LEFT JOIN subalcaldias s ON d.subalcaldia_id = s.id
+        ORDER BY diag.id DESC
+    `;
+
+    db.query(sqlConteos, (err, resultConteos) => {
+        if (err) return res.status(500).send(err);
+        
+        db.query(sqlProblemas, (err2, resultProblemas) => {
+            if (err2) return res.status(500).send(err2);
+            
+            res.json({
+                resumen: resultConteos[0],
+                problemas: resultProblemas
+            });
+        });
+    });
+});
+
 app.listen(PORT, () => console.log(`🚀 Server en http://localhost:${PORT}`));

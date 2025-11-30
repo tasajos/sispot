@@ -1,125 +1,57 @@
-/* =========================================
-   RESET Y ESTRUCTURA BASE (Full Screen)
-========================================= */
-html, body, #root {
-  height: 100%;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  overflow: hidden; /* Importante: el scroll lo manejamos internamente */
-  font-family: 'Segoe UI', system-ui, sans-serif;
-  background-color: #f3f4f6;
+/* src/App.css */
+
+/* 1. RESET: Permitimos que el contenido fluya */
+* {
+  box-sizing: border-box;
 }
 
-/* =========================================
-   LAYOUT FLEXIBLE (Sidebar + Content)
-========================================= */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background-color: #f3f4f6;
+  /* IMPORTANTE: Quitamos overflow hidden global para evitar cortes */
+  overflow: hidden; 
+}
+
+/* 2. CONTENEDOR PRINCIPAL */
 .app-container {
   display: flex;
   width: 100vw;
   height: 100vh;
 }
 
-/* Sidebar */
+/* Sidebar (Izquierda) */
 .sidebar {
   width: 260px;
-  background-color: #212529; /* Dark */
+  background-color: #212529;
   color: white;
   display: flex;
   flex-direction: column;
-  transition: width 0.3s ease;
-  flex-shrink: 0; /* No encoger */
+  flex-shrink: 0;
+  z-index: 10;
 }
 
-.sidebar.closed {
-  width: 0;
-  overflow: hidden;
-}
-
-/* Area Principal */
+/* Contenido Principal (Derecha) */
 .main-content {
-  flex: 1; /* Ocupa TODO el espacio restante */
+  flex: 1;
   display: flex;
   flex-direction: column;
-  min-width: 0; /* Truco vital para que el grid no se desborde */
   background-color: #f3f4f6;
+  position: relative;
+  min-width: 0; /* Evita desbordes horizontales */
 }
 
+/* 3. ÁREA DE SCROLL (Aquí estaba el problema) */
 .content-scroll-area {
   flex: 1;
-  overflow-y: auto; /* Scroll solo aquí */
-  padding: 20px;
-}
-
-/* =========================================
-   GRID DEL TABLERO (La solución al espacio blanco)
-========================================= */
-.board-container {
-  display: flex;
-  flex-direction: column;
   height: 100%;
+  overflow-y: auto; /* Scroll vertical */
+  padding: 30px; /* Espacio para que no se pegue a los bordes */
 }
 
-.kanban-grid {
-  display: grid;
-  /* Por defecto (PC): 3 columnas iguales que ocupan todo el ancho */
-  grid-template-columns: repeat(3, 1fr); 
-  gap: 20px;
-  height: 100%; /* Ocupa toda la altura disponible */
-  min-height: 0; /* Permite scroll interno en las columnas */
-}
-
-/* Columna del Kanban (Carril) */
-.kanban-column {
-  background-color: #e9ecef;
-  border-radius: 12px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid #dee2e6;
-  height: 100%; /* Full altura */
-  overflow: hidden;
-}
-
-.column-body {
-  flex: 1;
-  overflow-y: auto; /* Scroll dentro de la columna si hay muchas tareas */
-  padding-right: 5px;
-  margin-top: 10px;
-}
-
-/* Tarjeta de Tarea */
-.task-card {
-  background: white;
-  padding: 15px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  margin-bottom: 12px;
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: all 0.2s;
-}
-
-.task-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-  border-color: #0d6efd;
-}
-
-/* RESPONSIVE: En celular (menos de 900px), 1 sola columna */
-@media (max-width: 900px) {
-  .kanban-grid {
-    grid-template-columns: 1fr; /* Una columna */
-    height: auto; /* Altura automática */
-    overflow-y: auto;
-  }
-  .kanban-column {
-    height: auto;
-    min-height: 300px;
-  }
-}
-
-/* Scrollbars bonitos */
-::-webkit-scrollbar { width: 6px; height: 6px; }
+/* Scrollbar moderno */
+::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #adb5bd; border-radius: 10px; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }

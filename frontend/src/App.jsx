@@ -4,7 +4,8 @@ import AnalisisDatos from './components/AnalisisDatos';
 import Competidores from './components/Competidores';
 import Catalogos from './components/Catalogos';
 import Login from './components/Login';
-import { LayoutDashboard, BarChart3, Users, LogOut, Menu, User, Database } from 'lucide-react';
+import { LayoutDashboard, BarChart3, Users, LogOut, Menu, User, Database , LayoutTemplate} from 'lucide-react';
+import Dashboard from './components/Dashboard';
 import { Button, Nav, Navbar } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css'; // Importamos nuestro CSS Grid
@@ -40,6 +41,16 @@ function App() {
             <span className="fs-5 fw-bold ps-2 text-nowrap">🏛️ Alcaldía Cocha</span>
         </div>
         
+        <Nav.Item className="mb-1">
+        <Nav.Link 
+        active={vistaActual === 'dashboard'} 
+        onClick={() => setVistaActual('dashboard')} 
+        className={`text-white px-3 py-2 rounded d-flex align-items-center gap-3 ${vistaActual === 'dashboard' ? 'bg-primary shadow-sm' : 'opacity-75 hover-bright'}`}
+        >
+        <LayoutTemplate size={20}/> <span className="fw-medium">Dashboard</span>
+        </Nav.Link>
+        </Nav.Item>
+
         <Nav className="flex-column mb-auto p-2 pt-3">
           <Nav.Item className="mb-1">
             <Nav.Link active={vistaActual === 'gestion'} onClick={() => setVistaActual('gestion')} className="text-white d-flex align-items-center gap-3 py-2 px-3 rounded hover-bright">
@@ -91,6 +102,7 @@ function App() {
                   <Menu size={24} />
                </Button>
                <h5 className="m-0 fw-bold text-dark">
+                 
                   {vistaActual === 'gestion' && 'Tablero de Estrategia'}
                   {vistaActual === 'analisis' && 'Inteligencia de Datos'}
                   {vistaActual === 'competidores' && 'Radar de Competencia'}
@@ -101,6 +113,7 @@ function App() {
 
         {/* ÁREA DE SCROLL */}
         <div className="content-scroll-area">
+           {vistaActual === 'dashboard' && <Dashboard />}
             {vistaActual === 'gestion' && <TableroGestion />}
             {vistaActual === 'analisis' && <AnalisisDatos />}
             {vistaActual === 'competidores' && <Competidores />}
