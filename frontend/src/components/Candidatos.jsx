@@ -4,6 +4,8 @@ import { Card, Button, Form, Table, Badge } from 'react-bootstrap';
 import { User, Award } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3310';
+const MAX_PUNTOS = 10;
+
 
 function Candidatos() {
   const [subvista, setSubvista] = useState('registrar');
@@ -13,14 +15,26 @@ function Candidatos() {
 
   // Form registro
   const [form, setForm] = useState({
-    nombre: '',
-    sigla: '',
-    habilidad_crisis: 3,
-    habilidad_dialogo: 3,
-    habilidad_tecnica: 3,
-    habilidad_comunicacion: 3,
-    habilidades_texto: ''
-  });
+  nombre: '',
+  sigla: '',
+  habilidad_crisis: 0,
+  habilidad_dialogo: 0,
+  habilidad_tecnica: 0,
+  habilidad_comunicacion: 0,
+  habilidades_texto: ''
+});
+
+
+
+
+const calcularTotal = (f) =>
+   Number(f.habilidad_crisis) +
+    Number(f.habilidad_dialogo) +
+    Number(f.habilidad_tecnica) +
+    Number(f.habilidad_comunicacion);
+
+  const totalPuntos = calcularTotal(form);
+  const puntosRestantes = MAX_PUNTOS - totalPuntos;
 
   // Simulación decisiones
   const [escenario, setEscenario] = useState('manifestacion');
@@ -55,31 +69,42 @@ function Candidatos() {
   };
 
   const handleRegistro = async (e) => {
-    e.preventDefault();
-    setMensaje(null);
-    try {
-      const res = await fetch(`${API_URL}/api/candidatos`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          habilidad_crisis: Number(form.habilidad_crisis),
-          habilidad_dialogo: Number(form.habilidad_dialogo),
-          habilidad_tecnica: Number(form.habilidad_tecnica),
-          habilidad_comunicacion: Number(form.habilidad_comunicacion)
-        })
-      });
+  e.preventDefault();
+  setMensaje(null);
+
+  const total = calcularTotal(form);
+  if (total !== MAX_PUNTOS) {
+    setMensaje({
+      tipo: 'warning',
+      texto: `Debes asignar exactamente ${MAX_PUNTOS} puntos. Actualmente llevas ${total}.`
+    });
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_URL}/api/candidatos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...form,
+        habilidad_crisis: Number(form.habilidad_crisis),
+        habilidad_dialogo: Number(form.habilidad_dialogo),
+        habilidad_tecnica: Number(form.habilidad_tecnica),
+        habilidad_comunicacion: Number(form.habilidad_comunicacion)
+      })
+    });
+
       if (!res.ok) throw new Error('Error al registrar');
       setMensaje({ tipo: 'success', texto: 'Candidato registrado correctamente' });
       setForm({
-        nombre: '',
-        sigla: '',
-        habilidad_crisis: 3,
-        habilidad_dialogo: 3,
-        habilidad_tecnica: 3,
-        habilidad_comunicacion: 3,
-        habilidades_texto: ''
-      });
+  nombre: '',
+  sigla: '',
+  habilidad_crisis: 0,
+  habilidad_dialogo: 0,
+  habilidad_tecnica: 0,
+  habilidad_comunicacion: 0,
+  habilidades_texto: ''
+});
     } catch (err) {
       console.error(err);
       setMensaje({ tipo: 'danger', texto: 'No se pudo registrar el candidato' });
@@ -204,27 +229,84 @@ function Candidatos() {
                 </div>
               </div>
 
-              <div className="row">
-                {[
-                  { name: 'habilidad_crisis', label: 'Manejo de crisis' },
-                  { name: 'habilidad_dialogo', label: 'Diálogo / negociación' },
-                  { name: 'habilidad_tecnica', label: 'Capacidad técnica' },
-                  { name: 'habilidad_comunicacion', label: 'Comunicación pública' }
-                ].map(h => (
-                  <div className="col-md-3 mb-3" key={h.name}>
-                    <Form.Label>{h.label} (1-5)</Form.Label>
-                    <Form.Select
-                      name={h.name}
-                      value={form[h.name]}
-                      onChange={handleChange}
-                    >
-                      {[1,2,3,4,5].map(v => (
-                        <option key={v} value={v}>{v}</option>
-                      ))}
-                    </Form.Select>
-                  </div>
-                ))}
-              </div>
+              {/* Indicador de puntos tipo juego de rol */}
+<div className="d-flex justify-content-end mb-2">
+  <Badge bg={puntosRestantes === 0 ? 'success' : (puntosRestantes < 0 ? 'danger' : 'info')}>
+    Puntos restantes: {puntosRestantes}
+  </Badge>
+</div>
+
+<div className="row">
+  {/* HABILIDADES BLANDAS */}
+  <div className="col-md-6">
+    <h6 className="text-muted mb-2">Habilidades blandas</h6>
+
+    <div className="mb-3">
+      <Form.Label>Manejo de crisis</Form.Label>
+      <Form.Control
+        type="number"
+        min={0}
+        max={MAX_PUNTOS}
+        name="habilidad_crisis"
+        value={form.habilidad_crisis}
+        onChange={handleChange}
+      />
+      <small className="text-muted">
+        Reacción ante conflictos, protestas y momentos de presión.
+      </small>
+    </div>
+
+    <div className="mb-3">
+      <Form.Label>Diálogo / negociación</Form.Label>
+      <Form.Control
+        type="number"
+        min={0}
+        max={MAX_PUNTOS}
+        name="habilidad_dialogo"
+        value={form.habilidad_dialogo}
+        onChange={handleChange}
+      />
+      <small className="text-muted">
+        Capacidad para negociar con sectores, sindicatos y juntas vecinales.
+      </small>
+    </div>
+
+    <div className="mb-3">
+      <Form.Label>Comunicación pública</Form.Label>
+      <Form.Control
+        type="number"
+        min={0}
+        max={MAX_PUNTOS}
+        name="habilidad_comunicacion"
+        value={form.habilidad_comunicacion}
+        onChange={handleChange}
+      />
+      <small className="text-muted">
+        Habilidad para explicar decisiones y conectar con la ciudadanía.
+      </small>
+    </div>
+  </div>
+
+  {/* HABILIDADES TÉCNICAS */}
+  <div className="col-md-6">
+    <h6 className="text-muted mb-2">Habilidades técnicas</h6>
+
+    <div className="mb-3">
+      <Form.Label>Capacidad técnica / gestión municipal</Form.Label>
+      <Form.Control
+        type="number"
+        min={0}
+        max={MAX_PUNTOS}
+        name="habilidad_tecnica"
+        value={form.habilidad_tecnica}
+        onChange={handleChange}
+      />
+      <small className="text-muted">
+        Conocimiento de normas, presupuesto, planificación y servicios.
+      </small>
+    </div>
+  </div>
+</div>
 
               <div className="mb-3">
                 <Form.Label>Descripción de habilidades / fortalezas</Form.Label>
