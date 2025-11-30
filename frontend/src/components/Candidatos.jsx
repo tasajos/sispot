@@ -14,13 +14,16 @@ function Candidatos() {
   const [mensaje, setMensaje] = useState(null);
 
   // Form registro
-  const [form, setForm] = useState({
+ const [form, setForm] = useState({
   nombre: '',
   sigla: '',
   habilidad_crisis: 0,
   habilidad_dialogo: 0,
   habilidad_tecnica: 0,
   habilidad_comunicacion: 0,
+  habilidad_influencia: 0,
+  habilidad_reputacion: 0,
+  habilidad_leyes: 0,
   habilidades_texto: ''
 });
 
@@ -28,10 +31,13 @@ function Candidatos() {
 
 
 const calcularTotal = (f) =>
-   Number(f.habilidad_crisis) +
-    Number(f.habilidad_dialogo) +
-    Number(f.habilidad_tecnica) +
-    Number(f.habilidad_comunicacion);
+  Number(f.habilidad_crisis) +
+  Number(f.habilidad_dialogo) +
+  Number(f.habilidad_tecnica) +
+  Number(f.habilidad_comunicacion) +
+  Number(f.habilidad_influencia) +
+  Number(f.habilidad_reputacion) +
+  Number(f.habilidad_leyes);
 
   const totalPuntos = calcularTotal(form);
   const puntosRestantes = MAX_PUNTOS - totalPuntos;
@@ -87,10 +93,14 @@ const calcularTotal = (f) =>
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...form,
-        habilidad_crisis: Number(form.habilidad_crisis),
-        habilidad_dialogo: Number(form.habilidad_dialogo),
-        habilidad_tecnica: Number(form.habilidad_tecnica),
-        habilidad_comunicacion: Number(form.habilidad_comunicacion)
+         habilidad_crisis: Number(form.habilidad_crisis),
+  habilidad_dialogo: Number(form.habilidad_dialogo),
+  habilidad_tecnica: Number(form.habilidad_tecnica),
+  habilidad_comunicacion: Number(form.habilidad_comunicacion),
+  habilidad_influencia: Number(form.habilidad_influencia),
+  habilidad_reputacion: Number(form.habilidad_reputacion),
+  habilidad_leyes: Number(form.habilidad_leyes)
+
       })
     });
 
@@ -103,6 +113,9 @@ const calcularTotal = (f) =>
   habilidad_dialogo: 0,
   habilidad_tecnica: 0,
   habilidad_comunicacion: 0,
+  habilidad_influencia: 0,
+  habilidad_reputacion: 0,
+  habilidad_leyes: 0,
   habilidades_texto: ''
 });
     } catch (err) {
@@ -267,7 +280,7 @@ const calcularTotal = (f) =>
         onChange={handleChange}
       />
       <small className="text-muted">
-        Capacidad para negociar con sectores, sindicatos y juntas vecinales.
+        Capacidad para negociar con sectores y sindicatos.
       </small>
     </div>
 
@@ -283,6 +296,36 @@ const calcularTotal = (f) =>
       />
       <small className="text-muted">
         Habilidad para explicar decisiones y conectar con la ciudadanía.
+      </small>
+    </div>
+
+    <div className="mb-3">
+      <Form.Label>Influencia</Form.Label>
+      <Form.Control
+        type="number"
+        min={0}
+        max={MAX_PUNTOS}
+        name="habilidad_influencia"
+        value={form.habilidad_influencia}
+        onChange={handleChange}
+      />
+      <small className="text-muted">
+        Capacidad para arrastrar apoyo y alinear aliados.
+      </small>
+    </div>
+
+    <div className="mb-3">
+      <Form.Label>Reputación</Form.Label>
+      <Form.Control
+        type="number"
+        min={0}
+        max={MAX_PUNTOS}
+        name="habilidad_reputacion"
+        value={form.habilidad_reputacion}
+        onChange={handleChange}
+      />
+      <small className="text-muted">
+        Percepción pública, confianza y credibilidad del candidato.
       </small>
     </div>
   </div>
@@ -302,7 +345,22 @@ const calcularTotal = (f) =>
         onChange={handleChange}
       />
       <small className="text-muted">
-        Conocimiento de normas, presupuesto, planificación y servicios.
+        Manejo de presupuesto, planificación y servicios municipales.
+      </small>
+    </div>
+
+    <div className="mb-3">
+      <Form.Label>Conocimiento en leyes</Form.Label>
+      <Form.Control
+        type="number"
+        min={0}
+        max={MAX_PUNTOS}
+        name="habilidad_leyes"
+        value={form.habilidad_leyes}
+        onChange={handleChange}
+      />
+      <small className="text-muted">
+        Dominio de normativa municipal, autonomía y leyes nacionales.
       </small>
     </div>
   </div>
@@ -346,6 +404,9 @@ const calcularTotal = (f) =>
                     <th>Diálogo</th>
                     <th>Técnica</th>
                     <th>Comunicación</th>
+                    <th>Influencia</th>
+                    <th>Reputación</th>
+                    <th>Leyes</th>
                     <th>Acciones</th>
                   </tr>
                 </thead>
@@ -360,6 +421,9 @@ const calcularTotal = (f) =>
                     <td>{c.habilidad_dialogo}</td>
                     <td>{c.habilidad_tecnica}</td>
                     <td>{c.habilidad_comunicacion}</td>
+                   <td>{c.habilidad_influencia ?? 0}</td>
+                    <td>{c.habilidad_reputacion ?? 0}</td>
+                    <td>{c.habilidad_leyes ?? 0}</td>
                     <td>
                         <Button
                         variant="outline-danger"

@@ -257,16 +257,19 @@ app.get('/api/dashboard/data', (req, res) => {
 
 // LISTAR CANDIDATOS
 app.get('/api/candidatos', (req, res) => {
-    const sql = `
-      SELECT id, nombre, sigla,
-             habilidad_crisis,
-             habilidad_dialogo,
-             habilidad_tecnica,
-             habilidad_comunicacion,
-             habilidades_texto
-      FROM candidatos
-      ORDER BY nombre ASC
-    `;
+  const sql = `
+    SELECT id, nombre, sigla,
+           habilidad_crisis,
+           habilidad_dialogo,
+           habilidad_tecnica,
+           habilidad_comunicacion,
+           habilidad_influencia,
+           habilidad_reputacion,
+           habilidad_leyes,
+           habilidades_texto
+    FROM candidatos
+    ORDER BY nombre ASC
+  `;
     db.query(sql, (err, r) => err ? res.status(500).send(err) : res.json(r));
 });
 
@@ -279,24 +282,33 @@ app.post('/api/candidatos', (req, res) => {
         habilidad_dialogo,
         habilidad_tecnica,
         habilidad_comunicacion,
+        habilidad_influencia,
+        habilidad_reputacion,
+        habilidad_leyes,
         habilidades_texto
     } = req.body;
 
     const sql = `
-      INSERT INTO candidatos
-      (nombre, sigla, habilidad_crisis, habilidad_dialogo, habilidad_tecnica, habilidad_comunicacion, habilidades_texto)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `;
+     INSERT INTO candidatos
+  (nombre, sigla,
+   habilidad_crisis, habilidad_dialogo, habilidad_tecnica, habilidad_comunicacion,
+   habilidad_influencia, habilidad_reputacion, habilidad_leyes,
+   habilidades_texto)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`;
 
-    db.query(sql, [
-        nombre,
-        sigla,
-        habilidad_crisis,
-        habilidad_dialogo,
-        habilidad_tecnica,
-        habilidad_comunicacion,
-        habilidades_texto || null
-    ], (err, r) => {
+   db.query(sql, [
+  nombre,
+  sigla,
+  habilidad_crisis,
+  habilidad_dialogo,
+  habilidad_tecnica,
+  habilidad_comunicacion,
+  habilidad_influencia,
+  habilidad_reputacion,
+  habilidad_leyes,
+  habilidades_texto || null
+], (err, r) => {
         if (err) return res.status(500).send(err);
         res.json({ message: "Candidato registrado", id: r.insertId });
     });
@@ -314,33 +326,42 @@ app.delete('/api/candidatos/:id', (req, res) => {
 
 // Mapa de escenarios y ponderaciones de habilidades
 const ESCENARIOS = {
-    manifestacion: {
-        nombre: "Manifestación vecinal",
-        pesos: {
-            habilidad_crisis: 0.4,
-            habilidad_dialogo: 0.2,
-            habilidad_tecnica: 0.0,
-            habilidad_comunicacion: 0.4
-        }
-    },
-    huelga: {
-        nombre: "Huelga de trabajadores municipales",
-        pesos: {
-            habilidad_crisis: 0.2,
-            habilidad_dialogo: 0.5,
-            habilidad_tecnica: 0.1,
-            habilidad_comunicacion: 0.2
-        }
-    },
-    desastre: {
-        nombre: "Desastre natural / inundación",
-        pesos: {
-            habilidad_crisis: 0.5,
-            habilidad_dialogo: 0.1,
-            habilidad_tecnica: 0.3,
-            habilidad_comunicacion: 0.1
-        }
+  manifestacion: {
+    nombre: "Manifestación vecinal",
+    pesos: {
+      habilidad_crisis: 0.2,
+      habilidad_dialogo: 0.2,
+      habilidad_tecnica: 0.0,
+      habilidad_comunicacion: 0.2,
+      habilidad_influencia: 0.25,
+      habilidad_reputacion: 0.15,
+      habilidad_leyes: 0.0
     }
+  },
+  huelga: {
+    nombre: "Huelga de trabajadores municipales",
+    pesos: {
+      habilidad_crisis: 0.1,
+      habilidad_dialogo: 0.3,
+      habilidad_tecnica: 0.1,
+      habilidad_comunicacion: 0.1,
+      habilidad_influencia: 0.2,
+      habilidad_reputacion: 0.1,
+      habilidad_leyes: 0.1
+    }
+  },
+  desastre: {
+    nombre: "Desastre natural / inundación",
+    pesos: {
+      habilidad_crisis: 0.3,
+      habilidad_dialogo: 0.05,
+      habilidad_tecnica: 0.25,
+      habilidad_comunicacion: 0.1,
+      habilidad_influencia: 0.1,
+      habilidad_reputacion: 0.05,
+      habilidad_leyes: 0.15
+    }
+  }
 };
 
 // SIMULAR TOMA DE DECISIONES EN UN ESCENARIO
@@ -354,27 +375,34 @@ app.post('/api/candidatos/simular-decision', (req, res) => {
     const { pesos, nombre } = ESCENARIOS[escenario];
 
     const sql = `
-      SELECT id, nombre, sigla,
-             habilidad_crisis,
-             habilidad_dialogo,
-             habilidad_tecnica,
-             habilidad_comunicacion
-      FROM candidatos
-    `;
+  SELECT id, nombre, sigla,
+         habilidad_crisis,
+         habilidad_dialogo,
+         habilidad_tecnica,
+         habilidad_comunicacion,
+         habilidad_influencia,
+         habilidad_reputacion,
+         habilidad_leyes
+  FROM candidatos
+`;
 
     db.query(sql, (err, candidatos) => {
         if (err) return res.status(500).send(err);
         if (candidatos.length === 0) return res.json({ escenario: nombre, resultados: [] });
 
         const resultados = candidatos.map(c => {
-            const score =
-                c.habilidad_crisis * pesos.habilidad_crisis +
-                c.habilidad_dialogo * pesos.habilidad_dialogo +
-                c.habilidad_tecnica * pesos.habilidad_tecnica +
-                c.habilidad_comunicacion * pesos.habilidad_comunicacion;
+        
+  const score =
+    c.habilidad_crisis      * pesos.habilidad_crisis +
+    c.habilidad_dialogo     * pesos.habilidad_dialogo +
+    c.habilidad_tecnica     * pesos.habilidad_tecnica +
+    c.habilidad_comunicacion* pesos.habilidad_comunicacion +
+    c.habilidad_influencia  * pesos.habilidad_influencia +
+    c.habilidad_reputacion  * pesos.habilidad_reputacion +
+    c.habilidad_leyes       * pesos.habilidad_leyes;
 
-            return { ...c, score: Number(score.toFixed(2)) };
-        }).sort((a, b) => b.score - a.score);
+  return { ...c, score: Number(score.toFixed(2)) };
+}).sort((a, b) => b.score - a.score);
 
         res.json({ escenario: nombre, resultados });
     });
@@ -384,27 +412,34 @@ app.post('/api/candidatos/simular-decision', (req, res) => {
 
 app.get('/api/candidatos/simular-mejor', (req, res) => {
     const sql = `
-      SELECT id, nombre, sigla,
-             habilidad_crisis,
-             habilidad_dialogo,
-             habilidad_tecnica,
-             habilidad_comunicacion
-      FROM candidatos
-    `;
+  SELECT id, nombre, sigla,
+         habilidad_crisis,
+         habilidad_dialogo,
+         habilidad_tecnica,
+         habilidad_comunicacion,
+         habilidad_influencia,
+         habilidad_reputacion,
+         habilidad_leyes
+  FROM candidatos
+`;
 
     db.query(sql, (err, candidatos) => {
         if (err) return res.status(500).send(err);
         if (candidatos.length === 0) return res.json({ resultados: [] });
 
-        const resultados = candidatos.map(c => {
-            const promedio =
-                (c.habilidad_crisis +
-                 c.habilidad_dialogo +
-                 c.habilidad_tecnica +
-                 c.habilidad_comunicacion) / 4;
+       const resultados = candidatos.map(c => {
+  const promedio = (
+    c.habilidad_crisis +
+    c.habilidad_dialogo +
+    c.habilidad_tecnica +
+    c.habilidad_comunicacion +
+    c.habilidad_influencia +
+    c.habilidad_reputacion +
+    c.habilidad_leyes
+  ) / 7;
 
-            return { ...c, score: Number(promedio.toFixed(2)) };
-        }).sort((a, b) => b.score - a.score);
+  return { ...c, score: Number(promedio.toFixed(2)) };
+}).sort((a, b) => b.score - a.score);
 
         res.json({
             titulo: "Ranking integral de candidatos para la Alcaldía de Cochabamba",
