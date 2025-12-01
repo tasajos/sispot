@@ -12,6 +12,62 @@ function Candidatos() {
   const [lista, setLista] = useState([]);
   const [cargando, setCargando] = useState(false);
   const [mensaje, setMensaje] = useState(null);
+  const [arquetipoIA, setArquetipoIA] = useState(null);
+
+const sugerirConIA = async () => {
+  setMensaje(null);
+
+  if (!form.nombre) {
+    setMensaje({
+      tipo: 'warning',
+      texto: 'Primero escribe el nombre del candidato para poder sugerir con IA.'
+    });
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_URL}/api/candidatos/sugerir-habilidades`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nombre: form.nombre,
+        sigla: form.sigla,
+        descripcion: form.habilidades_texto
+      })
+    });
+
+    const data = await res.json();
+if (!data.ok) throw new Error(data.message || 'Error IA');
+
+// Actualizamos las habilidades y la descripción con lo que propone la IA
+setForm(prev => ({
+  ...prev,
+  ...data.habilidades,
+  // Siempre sobreescribimos con la descripción nueva de la IA
+  habilidades_texto:
+    data.descripcionIA ||
+    data.arquetipo?.descripcionExtendida ||
+    prev.habilidades_texto // último fallback
+}));
+
+setArquetipoIA(data.arquetipo || null);
+
+const etiquetaFuente =
+  data.fuente === 'openai'
+    ? 'IA (ChatGPT)'
+    : `modelo local (${data.motivo || 'fallback'})`;
+
+setMensaje({
+  tipo: data.fuente === 'openai' ? 'info' : 'warning',
+  texto: `Habilidades sugeridas por ${etiquetaFuente}. Puedes ajustarlas antes de guardar.`
+});
+  } catch (err) {
+    console.error(err);
+    setMensaje({ tipo: 'danger', texto: 'No se pudo obtener la sugerencia con IA.' });
+  }
+};
+
+ 
 
   // Form registro
  const [form, setForm] = useState({
@@ -222,31 +278,48 @@ const calcularTotal = (f) =>
           <Card.Body>
             <Form onSubmit={handleRegistro}>
               <div className="row">
-                <div className="col-md-6 mb-3">
-                  <Form.Label>Nombre del candidato</Form.Label>
-                  <Form.Control
-                    name="nombre"
-                    value={form.nombre}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                <div className="col-md-3 mb-3">
-                  <Form.Label>Sigla política</Form.Label>
-                  <Form.Control
-                    name="sigla"
-                    value={form.sigla}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-              </div>
+  <div className="col-md-6 mb-3">
+    <Form.Label>Nombre del candidato</Form.Label>
+    <Form.Control
+      name="nombre"
+      value={form.nombre}
+      onChange={handleChange}
+      required
+    />
+    <div className="d-flex gap-2 mt-2">
+      <Button
+        size="sm"
+        type="button"
+        variant="outline-secondary"
+        onClick={sugerirConIA}
+        disabled={!form.nombre}
+      >
+        Sugerir puntos con IA 
+      </Button>
+    </div>
+  </div>
+
+  <div className="col-md-3 mb-3">
+    <Form.Label>Sigla política</Form.Label>
+    <Form.Control
+      name="sigla"
+      value={form.sigla}
+      onChange={handleChange}
+      required
+    />
+  </div>
+</div>
 
               {/* Indicador de puntos tipo juego de rol */}
 <div className="d-flex justify-content-end mb-2">
   <Badge bg={puntosRestantes === 0 ? 'success' : (puntosRestantes < 0 ? 'danger' : 'info')}>
     Puntos restantes: {puntosRestantes}
   </Badge>
+   {arquetipoIA && (
+    <Badge bg="secondary">
+      Arquetipo IA: {arquetipoIA.nombre}
+    </Badge>
+     )}
 </div>
 
 <div className="row">
@@ -381,6 +454,8 @@ const calcularTotal = (f) =>
               <Button type="submit" variant="primary">
                 Guardar candidato
               </Button>
+
+               
             </Form>
           </Card.Body>
         </Card>

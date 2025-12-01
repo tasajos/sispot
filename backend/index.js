@@ -5,6 +5,8 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const { llamarModeloIA, ARQUETIPOS } = require('./helpers/ia');
+
 
 app.use(cors());
 app.use(express.json());
@@ -366,95 +368,206 @@ const ESCENARIOS = {
 
 // SIMULAR TOMA DE DECISIONES EN UN ESCENARIO
 app.post('/api/candidatos/simular-decision', (req, res) => {
-    const { escenario } = req.body;
+  const { escenario } = req.body;
 
-    if (!ESCENARIOS[escenario]) {
-        return res.status(400).json({ message: "Escenario no válido" });
+  if (!ESCENARIOS[escenario]) {
+    return res.status(400).json({ message: "Escenario no válido" });
+  }
+
+  const { pesos, nombre } = ESCENARIOS[escenario];
+
+  const sql = `
+    SELECT id, nombre, sigla,
+           habilidad_crisis,
+           habilidad_dialogo,
+           habilidad_tecnica,
+           habilidad_comunicacion,
+           habilidad_influencia,
+           habilidad_reputacion,
+           habilidad_leyes
+    FROM candidatos
+  `;
+
+  db.query(sql, (err, candidatos) => {
+    if (err) return res.status(500).send(err);
+    if (candidatos.length === 0) {
+      return res.json({ escenario: nombre, resultados: [] });
     }
 
-    const { pesos, nombre } = ESCENARIOS[escenario];
+    const resultados = candidatos
+      .map(c => {
+        const score =
+          c.habilidad_crisis       * pesos.habilidad_crisis +
+          c.habilidad_dialogo      * pesos.habilidad_dialogo +
+          c.habilidad_tecnica      * pesos.habilidad_tecnica +
+          c.habilidad_comunicacion * pesos.habilidad_comunicacion +
+          c.habilidad_influencia   * pesos.habilidad_influencia +
+          c.habilidad_reputacion   * pesos.habilidad_reputacion +
+          c.habilidad_leyes        * pesos.habilidad_leyes;
 
-    const sql = `
-  SELECT id, nombre, sigla,
-         habilidad_crisis,
-         habilidad_dialogo,
-         habilidad_tecnica,
-         habilidad_comunicacion,
-         habilidad_influencia,
-         habilidad_reputacion,
-         habilidad_leyes
-  FROM candidatos
-`;
+        return { ...c, score: Number(score.toFixed(2)) };
+      })
+      .sort((a, b) => b.score - a.score);
 
-    db.query(sql, (err, candidatos) => {
-        if (err) return res.status(500).send(err);
-        if (candidatos.length === 0) return res.json({ escenario: nombre, resultados: [] });
-
-        const resultados = candidatos.map(c => {
-        
-  const score =
-    c.habilidad_crisis      * pesos.habilidad_crisis +
-    c.habilidad_dialogo     * pesos.habilidad_dialogo +
-    c.habilidad_tecnica     * pesos.habilidad_tecnica +
-    c.habilidad_comunicacion* pesos.habilidad_comunicacion +
-    c.habilidad_influencia  * pesos.habilidad_influencia +
-    c.habilidad_reputacion  * pesos.habilidad_reputacion +
-    c.habilidad_leyes       * pesos.habilidad_leyes;
-
-  return { ...c, score: Number(score.toFixed(2)) };
-}).sort((a, b) => b.score - a.score);
-
-        res.json({ escenario: nombre, resultados });
-    });
+    res.json({ escenario: nombre, resultados });
+  });
 });
 
 // -------- SIMULACIÓN DE MEJOR CANDIDATO PARA ALCALDÍA --------
 
 app.get('/api/candidatos/simular-mejor', (req, res) => {
-    const sql = `
-  SELECT id, nombre, sigla,
-         habilidad_crisis,
-         habilidad_dialogo,
-         habilidad_tecnica,
-         habilidad_comunicacion,
-         habilidad_influencia,
-         habilidad_reputacion,
-         habilidad_leyes
-  FROM candidatos
-`;
+  const sql = `
+    SELECT id, nombre, sigla,
+           habilidad_crisis,
+           habilidad_dialogo,
+           habilidad_tecnica,
+           habilidad_comunicacion,
+           habilidad_influencia,
+           habilidad_reputacion,
+           habilidad_leyes
+    FROM candidatos
+  `;
 
-    db.query(sql, (err, candidatos) => {
-        if (err) return res.status(500).send(err);
-        if (candidatos.length === 0) return res.json({ resultados: [] });
+  db.query(sql, (err, candidatos) => {
+    if (err) return res.status(500).send(err);
+    if (candidatos.length === 0) return res.json({ resultados: [] });
 
-       const resultados = candidatos.map(c => {
-  const promedio = (
-    c.habilidad_crisis +
-    c.habilidad_dialogo +
-    c.habilidad_tecnica +
-    c.habilidad_comunicacion +
-    c.habilidad_influencia +
-    c.habilidad_reputacion +
-    c.habilidad_leyes
-  ) / 7;
+    const resultados = candidatos
+      .map(c => {
+        const promedio = (
+          c.habilidad_crisis +
+          c.habilidad_dialogo +
+          c.habilidad_tecnica +
+          c.habilidad_comunicacion +
+          c.habilidad_influencia +
+          c.habilidad_reputacion +
+          c.habilidad_leyes
+        ) / 7;
 
-  return { ...c, score: Number(promedio.toFixed(2)) };
-}).sort((a, b) => b.score - a.score);
+        return { ...c, score: Number(promedio.toFixed(2)) };
+      })
+      .sort((a, b) => b.score - a.score);
 
-        res.json({
-            titulo: "Ranking integral de candidatos para la Alcaldía de Cochabamba",
-            resultados
-        });
+    res.json({
+      titulo: "Ranking integral de candidatos para la Alcaldía de Cochabamba",
+      resultados
     });
+  });
 });
 
-// ELIMINAR CANDIDATO
+// (Solo UNA vez) ELIMINAR CANDIDATO
 app.delete('/api/candidatos/:id', (req, res) => {
   const { id } = req.params;
   db.query("DELETE FROM candidatos WHERE id = ?", [id], (err) => {
     if (err) return res.status(500).send(err);
     res.json({ message: "Candidato eliminado" });
   });
+});
+
+// -------- IA: DETECTAR ARQUETIPO + SUGERIR HABILIDADES --------
+
+// Función auxiliar para detectar arquetipo más cercano
+function detectarArquetipo(habilidades) {
+  // Si viene undefined / null / no es objeto → sin arquetipo
+  if (!habilidades || typeof habilidades !== 'object') {
+    console.warn('⚠️ detectarArquetipo llamado sin habilidades válidas, devolviendo null');
+    return null;
+  }
+
+  // Si ARQUETIPOS viene mal por alguna razón, devolvemos null
+  if (!ARQUETIPOS || typeof ARQUETIPOS !== 'object') {
+    console.warn('⚠️ ARQUETIPOS no definido o inválido');
+    return null;
+  }
+
+  const nombresArquetipos = Object.keys(ARQUETIPOS);
+  if (!nombresArquetipos.length) {
+    console.warn('⚠️ ARQUETIPOS está vacío');
+    return null;
+  }
+
+  let mejorId = null;
+  let mejorDistancia = Infinity;
+
+  for (const id of nombresArquetipos) {
+    const arq = ARQUETIPOS[id];
+    if (!arq || !arq.habilidades) {
+      console.warn(`⚠️ Arquetipo ${id} sin habilidades, se omite`);
+      continue;
+    }
+
+    const base = arq.habilidades;
+    let dist = 0;
+
+    for (const campo of [
+      "habilidad_crisis",
+      "habilidad_dialogo",
+      "habilidad_tecnica",
+      "habilidad_comunicacion",
+      "habilidad_influencia",
+      "habilidad_reputacion",
+      "habilidad_leyes"
+    ]) {
+      const vC = Number((habilidades && habilidades[campo]) || 0);
+      const vB = Number((base && base[campo]) || 0);
+      dist += Math.abs(vC - vB);
+    }
+
+    if (dist < mejorDistancia) {
+      mejorDistancia = dist;
+      mejorId = id;
+    }
+  }
+
+  if (!mejorId) return null;
+
+  const arq = ARQUETIPOS[mejorId];
+
+  const descripcionExtendida =
+    `Arquetipo sugerido: ${arq.nombre}. ${arq.descripcion}. ` +
+    `Puntos estimados según este arquetipo: ${JSON.stringify(arq.habilidades)}`;
+
+  return {
+    id: mejorId,
+    nombre: arq.nombre,
+    descripcion: arq.descripcion,
+    descripcionExtendida
+  };
+}
+
+// IA: sugerir habilidades + arquetipo
+app.post('/api/candidatos/sugerir-habilidades', async (req, res) => {
+  const { nombre, sigla } = req.body;
+
+  try {
+    const { habilidades, fuente, motivo, descripcionIA, arquetipo_id } =
+      await llamarModeloIA(nombre, sigla);
+
+    let arquetipo = null;
+    if (arquetipo_id && ARQUETIPOS[arquetipo_id]) {
+      const arq = ARQUETIPOS[arquetipo_id];
+      arquetipo = {
+        id: arquetipo_id,
+        nombre: arq.nombre,
+        descripcion: arq.descripcion,
+        descripcionExtendida:
+          `Arquetipo sugerido por IA: ${arq.nombre}. ${arq.descripcion}. ` +
+          `Puntos típicos para este arquetipo: ${JSON.stringify(arq.habilidades)}`
+      };
+    }
+
+    res.json({
+      ok: true,
+      habilidades,
+      arquetipo,
+      fuente,
+      motivo,
+      descripcionIA
+    });
+  } catch (err) {
+    console.error("❌ Error en /api/candidatos/sugerir-habilidades:", err);
+    res.status(500).json({ ok: false, message: 'Error al generar sugerencia con IA' });
+  }
 });
 
 app.listen(PORT, () => console.log(`🚀 Server en http://localhost:${PORT}`));
