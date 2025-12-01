@@ -1,7 +1,8 @@
 // src/components/Candidatos.jsx
 import { useEffect, useState } from 'react';
-import { Card, Button, Form, Table, Badge } from 'react-bootstrap';
 import { User, Award } from 'lucide-react';
+import { Card, Button, Form, Table, Badge, Modal, Spinner } from 'react-bootstrap';
+
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3310';
 const MAX_PUNTOS = 10;
@@ -14,6 +15,8 @@ function Candidatos() {
   const [mensaje, setMensaje] = useState(null);
   const [arquetipoIA, setArquetipoIA] = useState(null);
 
+  const [cargandoIA, setCargandoIA] = useState(false);
+
 const sugerirConIA = async () => {
   setMensaje(null);
 
@@ -25,45 +28,54 @@ const sugerirConIA = async () => {
     return;
   }
 
+  // 👇 abrimos el modal de carga
+  setCargandoIA(true);
+
   try {
     const res = await fetch(`${API_URL}/api/candidatos/sugerir-habilidades`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         nombre: form.nombre,
-        sigla: form.sigla,
-        descripcion: form.habilidades_texto
+        sigla: form.sigla
       })
     });
 
     const data = await res.json();
-if (!data.ok) throw new Error(data.message || 'Error IA');
+    if (!data.ok) throw new Error(data.message || 'Error IA');
 
-// Actualizamos las habilidades y la descripción con lo que propone la IA
-setForm(prev => ({
-  ...prev,
-  ...data.habilidades,
-  // Siempre sobreescribimos con la descripción nueva de la IA
-  habilidades_texto:
-    data.descripcionIA ||
-    data.arquetipo?.descripcionExtendida ||
-    prev.habilidades_texto // último fallback
-}));
+    // Actualizamos las habilidades con lo que propone la IA
+    setForm(prev => ({
+      ...prev,
+      ...data.habilidades,
+      // descripción que vino de la IA (si existe)
+      habilidades_texto: data.descripcionIA || prev.habilidades_texto
+    }));
 
-setArquetipoIA(data.arquetipo || null);
+    setArquetipoIA(
+      data.arquetipo || (data.arquetipo_id
+        ? { id: data.arquetipo_id, nombre: data.arquetipo_id }
+        : null)
+    );
 
-const etiquetaFuente =
-  data.fuente === 'openai'
-    ? 'IA (ChatGPT)'
-    : `modelo local (${data.motivo || 'fallback'})`;
+    const etiquetaFuente =
+      data.fuente === 'openai'
+        ? 'IA (ChatGPT)'
+        : 'modelo local (fallback)';
 
-setMensaje({
-  tipo: data.fuente === 'openai' ? 'info' : 'warning',
-  texto: `Habilidades sugeridas por ${etiquetaFuente}. Puedes ajustarlas antes de guardar.`
-});
+    setMensaje({
+      tipo: data.fuente === 'openai' ? 'info' : 'warning',
+      texto: `Habilidades sugeridas por ${etiquetaFuente}. Puedes ajustarlas antes de guardar.`
+    });
   } catch (err) {
     console.error(err);
-    setMensaje({ tipo: 'danger', texto: 'No se pudo obtener la sugerencia con IA.' });
+    setMensaje({
+      tipo: 'danger',
+      texto: 'No se pudo obtener la sugerencia con IA.'
+    });
+  } finally {
+    // 👇 cerramos el modal SIEMPRE
+    setCargandoIA(false);
   }
 };
 
@@ -231,6 +243,28 @@ const calcularTotal = (f) =>
 
   return (
     <div className="container-fluid">
+
+        {/* Modal de carga IA */}
+<Modal
+  show={cargandoIA}
+  onHide={() => {}}
+  backdrop="static"
+  keyboard={false}
+  centered
+>
+  <Modal.Header>
+    <Modal.Title>Cargando datos del candidato...</Modal.Title>
+  </Modal.Header>
+  <Modal.Body className="d-flex flex-column align-items-center text-center">
+    <Spinner animation="border" className="mb-3" />
+    <div>
+      Consultando el perfil del candidato en la IA.
+      <br />
+      Por favor espera unos segundos.
+    </div>
+  </Modal.Body>
+</Modal>
+
       {/* Tabs internas */}
       <div className="d-flex gap-2 mb-3 flex-wrap">
         <Button
