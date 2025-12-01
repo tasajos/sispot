@@ -552,35 +552,33 @@ app.post("/api/candidatos/sugerir-habilidades", async (req, res) => {
   const { nombre, sigla } = req.body;
 
   try {
-   const {
-  habilidades,
-  fuente,
-  descripcionIA,
-  historiaIA,
-  arquetipo_id,
-  webResumen,
-  webResultados,
-  contextoWeb,
-} = await llamarModeloIA(nombre, sigla);
+    const {
+      habilidades,
+      fuente,
+      descripcionIA,
+      historia,
+      arquetipo_id,
+      contextoWeb,
+      webResumen,
+      webResultados,
+    } = await llamarModeloIA(nombre, sigla);
 
-const arquetipo = detectarArquetipo(habilidades, arquetipo_id);
+    const arquetipo = detectarArquetipo(habilidades, arquetipo_id);
 
-res.json({
-  ok: true,
-  habilidades,
-  arquetipo,
-  fuente,
-  descripcionIA,  // para habilidades
-  historiaIA,     // para la tarjeta de historia
-  contextoWeb,
-  webResumen,
-  webResultados
-});
+    res.json({
+      ok: true,
+      habilidades,
+      arquetipo,
+      fuente,        // 'openai' o 'fallback_local'
+      descripcionIA, // perfil político / fortalezas
+      historia,      // biografía
+      contextoWeb,   // texto que se le pasó a la IA
+      webResumen,
+      webResultados, // [{titulo, link, snippet, fuente}, ...]
+    });
   } catch (err) {
     console.error("❌ Error en /api/candidatos/sugerir-habilidades:", err);
-    res
-      .status(500)
-      .json({ ok: false, message: "Error al generar sugerencia con IA" });
+    res.status(500).json({ ok: false, message: "Error al generar sugerencia con IA" });
   }
 });
 

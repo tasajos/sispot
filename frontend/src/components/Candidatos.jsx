@@ -26,7 +26,7 @@ const [webResultados, setWebResultados] = useState([]);
 const sugerirConIA = async () => {
   setMensaje(null);
 
-  // Limpiamos historia/contexto previos para que no quede basura de otro candidato
+  // Limpiamos info previa
   setHistoriaIA('');
   setContextoWeb('');
   setWebResultados([]);
@@ -40,7 +40,7 @@ const sugerirConIA = async () => {
     return;
   }
 
-  // 👇 abrimos el modal de carga
+  // Abrimos modal
   setCargandoIA(true);
 
   try {
@@ -58,22 +58,26 @@ const sugerirConIA = async () => {
     }
 
     const data = await res.json();
-if (!data.ok) throw new Error(data.message || "Error IA");
+    if (!data.ok) throw new Error(data.message || 'Error IA');
+    console.log('Respuesta IA /api/candidatos/sugerir-habilidades:', data);
 
-// Actualizamos las habilidades y la descripción del textar
-setForm(prev => ({
-  ...prev,
-  ...data.habilidades,
-  habilidades_texto: data.descripcionIA || prev.habilidades_texto
-}));
+    // ⬇️ data.habilidades, data.descripcionIA, data.historia, etc vienen del backend
+    setForm(prev => ({
+      ...prev,
+      ...data.habilidades,
+      // aquí va el perfil político / fortalezas
+      habilidades_texto: data.descripcionIA || prev.habilidades_texto
+    }));
 
-setArquetipoIA(data.arquetipo || null);
+    setArquetipoIA(data.arquetipo || null);
 
-// Guardamos historia e info web
-setHistoriaIA(data.historiaIA || "");          // 👈 biografía separada
-setWebInfo(data.webResumen || "");
-setWebResultados(data.webResultados || []);
-setContextoWeb(data.contextoWeb || "");
+    // Biografía (solo historia personal)
+    setHistoriaIA(data.historia || '');
+
+    // Resumen de lo encontrado en la web (si quieres)
+    setWebInfo(data.webResumen || '');
+    setWebResultados(data.webResultados || []);
+    setContextoWeb(data.contextoWeb || '');
 
     const etiquetaFuente =
       data.fuente === 'openai'
@@ -91,8 +95,7 @@ setContextoWeb(data.contextoWeb || "");
       texto: 'No se pudo obtener la sugerencia con IA.'
     });
   } finally {
-    // 👇 cerramos el modal SIEMPRE al final
-    setCargandoIA(false);
+    setCargandoIA(false); // cerramos modal
   }
 };
 
@@ -517,10 +520,32 @@ const calcularTotal = (f) =>
       </Card>
         )}
 
+{webResultados.length > 0 && (
+  <Card className="mb-3">
+    <Card.Header>Enlaces encontrados en la web</Card.Header>
+    <Card.Body>
+      <ul className="list-unstyled mb-0">
+        {webResultados.map((item, idx) => (
+          <li key={idx} className="mb-2">
+            <a href={item.link} target="_blank" rel="noreferrer">
+              <strong>{item.titulo}</strong>
+            </a>
+            <br />
+            <small className="text-muted">
+              {item.fuente} — {item.snippet}
+            </small>
+          </li>
+        ))}
+      </ul>
+    </Card.Body>
+  </Card>
+)}
+
+
         {/* HISTORIA DEL CANDIDATO (IA) */}
         {historiaIA && (
           <Card className="mb-3">
-            <Card.Header>Historia y perfil político del candidato (IA)</Card.Header>
+            <Card.Header>Historia y biografia del candidato (IA)</Card.Header>
             <Card.Body>
               <p style={{ whiteSpace: 'pre-wrap' }}>{historiaIA}</p>
             </Card.Body>
