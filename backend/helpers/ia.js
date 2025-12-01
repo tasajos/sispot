@@ -198,6 +198,7 @@ async function buscarInfoEnWeb(nombre) {
     `${base} site:http://facebook.com`,
     `${base} site:http://youtube.com`,
     `${base} site:http://x.com`,
+    `${base} site:http://lostiempos.com`,
     base
   ];
 
@@ -208,7 +209,8 @@ async function buscarInfoEnWeb(nombre) {
       `https://customsearch.googleapis.com/customsearch/v1` +
       `?key=${encodeURIComponent(apiKey)}` +
       `&cx=${encodeURIComponent(cx)}` +
-      `&q=${encodeURIComponent(q)}`;
+       `&q=${encodeURIComponent(q)}` ;
+      
 
     try {
       const resp = await fetch(url);
@@ -227,7 +229,7 @@ async function buscarInfoEnWeb(nombre) {
 
       console.log(`🌐 Resultados encontrados para "${q}"`);
 
-      data.items.slice(0, 5).forEach((item) => {
+      data.items.slice(0, 10).forEach((item) => {
         if (!resultadosMap.has(item.link)) {
           resultadosMap.set(item.link, {
             titulo: item.title,
@@ -336,9 +338,7 @@ Tareas:
    - habilidad_reputacion
    - habilidad_leyes
 
-2) Escribe un campo "descripcion_perfil" con un máximo de 3 líneas:
-   - Solo sobre el PERFIL POLÍTICO y las FORTALEZAS para la Alcaldía.
-   - Nada de historia personal ni biografía detallada.
+2) Escribe una **descripción_perfil**: un párrafo corto con las fortalezas del candidato para gobernar (perfil político).
 
 3) Escribe un campo "biografia":
    - SOLO si en la información de la web hay datos concretos (cargos reales, grupos, etc.).
@@ -412,8 +412,8 @@ Responde SOLO con un JSON válido, sin texto adicional. Formato:
       historia: parsed.biografia || "",
       arquetipo_id: parsed.arquetipo_sugerido || null,
       contextoWeb,
-      webResumen: infoWeb?.resumen || null,
-      webResultados,
+      webResumen: infoWeb?.resumen || "",
+      webResultados: infoWeb?.bruto || [],
     };
   } catch (err) {
     console.error("❌ Error llamando a OpenAI:", err);

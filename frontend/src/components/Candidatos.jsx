@@ -509,16 +509,7 @@ const calcularTotal = (f) =>
               </div>
 
 
-              {webInfo && (
-  <Card className="mb-3">
-    <Card.Header>Lo que se encontró en la web</Card.Header>
-    <Card.Body>
-      <small className="text-muted" style={{ whiteSpace: 'pre-line' }}>
-        {webInfo}
-      </small>
-    </Card.Body>
-      </Card>
-        )}
+           
 
 {webResultados.length > 0 && (
   <Card className="mb-3">
