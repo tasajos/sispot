@@ -60,7 +60,7 @@ const sugerirConIA = async () => {
     const data = await res.json();
 if (!data.ok) throw new Error(data.message || "Error IA");
 
-// Actualizamos las habilidades y la descripción del textarea
+// Actualizamos las habilidades y la descripción del textar
 setForm(prev => ({
   ...prev,
   ...data.habilidades,
