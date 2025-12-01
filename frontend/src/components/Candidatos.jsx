@@ -113,7 +113,7 @@ const calcularTotal = (f) =>
       setLista(data);
     } catch (err) {
       console.error(err);
-      setMensaje({ tipo: 'danger', texto: 'Error al cargar candidatos' });
+      setMensaje({ tipo: 'danger', texto: 'Error al cargar candidato' });
     } finally {
       setCargando(false);
     }
