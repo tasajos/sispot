@@ -467,22 +467,38 @@ app.delete('/api/candidatos/:id', (req, res) => {
 // -------- IA: DETECTAR ARQUETIPO + SUGERIR HABILIDADES --------
 
 // Función auxiliar para detectar arquetipo más cercano
-function detectarArquetipo(habilidades) {
-  // Si viene undefined / null / no es objeto → sin arquetipo
-  if (!habilidades || typeof habilidades !== 'object') {
-    console.warn('⚠️ detectarArquetipo llamado sin habilidades válidas, devolviendo null');
+function detectarArquetipo(habilidades, arquetipo_id) {
+  // Si la IA ya sugirió uno y existe en nuestro mapa, usamos ese
+  if (arquetipo_id && ARQUETIPOS[arquetipo_id]) {
+    const a = ARQUETIPOS[arquetipo_id];
+    const descripcionExtendida =
+      `Arquetipo sugerido: ${a.nombre}. ${a.descripcion}. ` +
+      `Puntos teóricos del arquetipo: ${JSON.stringify(a.habilidades)}`;
+
+    return {
+      id: arquetipo_id,
+      nombre: a.nombre,
+      descripcion: a.descripcion,
+      descripcionExtendida,
+    };
+  }
+
+  // Si no hay sugerido, calculamos el más cercano
+  if (!habilidades || typeof habilidades !== "object") {
+    console.warn(
+      "⚠️ detectarArquetipo llamado sin habilidades válidas, devolviendo null"
+    );
     return null;
   }
 
-  // Si ARQUETIPOS viene mal por alguna razón, devolvemos null
-  if (!ARQUETIPOS || typeof ARQUETIPOS !== 'object') {
-    console.warn('⚠️ ARQUETIPOS no definido o inválido');
+  if (!ARQUETIPOS || typeof ARQUETIPOS !== "object") {
+    console.warn("⚠️ ARQUETIPOS no definido o inválido");
     return null;
   }
 
   const nombresArquetipos = Object.keys(ARQUETIPOS);
   if (!nombresArquetipos.length) {
-    console.warn('⚠️ ARQUETIPOS está vacío');
+    console.warn("⚠️ ARQUETIPOS está vacío");
     return null;
   }
 
@@ -491,10 +507,7 @@ function detectarArquetipo(habilidades) {
 
   for (const id of nombresArquetipos) {
     const arq = ARQUETIPOS[id];
-    if (!arq || !arq.habilidades) {
-      console.warn(`⚠️ Arquetipo ${id} sin habilidades, se omite`);
-      continue;
-    }
+    if (!arq || !arq.habilidades) continue;
 
     const base = arq.habilidades;
     let dist = 0;
@@ -506,7 +519,7 @@ function detectarArquetipo(habilidades) {
       "habilidad_comunicacion",
       "habilidad_influencia",
       "habilidad_reputacion",
-      "habilidad_leyes"
+      "habilidad_leyes",
     ]) {
       const vC = Number((habilidades && habilidades[campo]) || 0);
       const vB = Number((base && base[campo]) || 0);
@@ -522,51 +535,52 @@ function detectarArquetipo(habilidades) {
   if (!mejorId) return null;
 
   const arq = ARQUETIPOS[mejorId];
-
   const descripcionExtendida =
-    `Arquetipo sugerido: ${arq.nombre}. ${arq.descripcion}. ` +
-    `Puntos estimados según este arquetipo: ${JSON.stringify(arq.habilidades)}`;
+    `Arquetipo sugerido (por proximidad): ${arq.nombre}. ${arq.descripcion}. ` +
+    `Puntos teóricos del arquetipo: ${JSON.stringify(arq.habilidades)}`;
 
   return {
     id: mejorId,
     nombre: arq.nombre,
     descripcion: arq.descripcion,
-    descripcionExtendida
+    descripcionExtendida,
   };
 }
 
 // IA: sugerir habilidades + arquetipo
-app.post('/api/candidatos/sugerir-habilidades', async (req, res) => {
+app.post("/api/candidatos/sugerir-habilidades", async (req, res) => {
   const { nombre, sigla } = req.body;
 
   try {
-    const { habilidades, fuente, motivo, descripcionIA, arquetipo_id } =
-      await llamarModeloIA(nombre, sigla);
+   const {
+  habilidades,
+  fuente,
+  descripcionIA,
+  historiaIA,
+  arquetipo_id,
+  webResumen,
+  webResultados,
+  contextoWeb,
+} = await llamarModeloIA(nombre, sigla);
 
-    let arquetipo = null;
-    if (arquetipo_id && ARQUETIPOS[arquetipo_id]) {
-      const arq = ARQUETIPOS[arquetipo_id];
-      arquetipo = {
-        id: arquetipo_id,
-        nombre: arq.nombre,
-        descripcion: arq.descripcion,
-        descripcionExtendida:
-          `Arquetipo sugerido por IA: ${arq.nombre}. ${arq.descripcion}. ` +
-          `Puntos típicos para este arquetipo: ${JSON.stringify(arq.habilidades)}`
-      };
-    }
+const arquetipo = detectarArquetipo(habilidades, arquetipo_id);
 
-    res.json({
-      ok: true,
-      habilidades,
-      arquetipo,
-      fuente,
-      motivo,
-      descripcionIA
-    });
+res.json({
+  ok: true,
+  habilidades,
+  arquetipo,
+  fuente,
+  descripcionIA,  // para habilidades
+  historiaIA,     // para la tarjeta de historia
+  contextoWeb,
+  webResumen,
+  webResultados
+});
   } catch (err) {
     console.error("❌ Error en /api/candidatos/sugerir-habilidades:", err);
-    res.status(500).json({ ok: false, message: 'Error al generar sugerencia con IA' });
+    res
+      .status(500)
+      .json({ ok: false, message: "Error al generar sugerencia con IA" });
   }
 });
 

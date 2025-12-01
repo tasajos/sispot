@@ -1,9 +1,13 @@
 // helpers/ia.js
 const OpenAI = require("openai");
+const fetch = require("node-fetch"); // si no lo tienes aún en este archivo
+
 
 // 🔑 Cliente OpenAI (puede ser null si no hay API key)
 const hasOpenAIKey = !!process.env.OPENAI_API_KEY;
 const openai = hasOpenAIKey ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+const GOOGLE_SEARCH_API_KEY = process.env.GOOGLE_SEARCH_API_KEY;
+const GOOGLE_SEARCH_CX = process.env.GOOGLE_SEARCH_CX;
 
 console.log(hasOpenAIKey ? "✅ OPENAI_API_KEY detectada." : "⚠️ No hay OPENAI_API_KEY. Se usará solo modelo local.");
 
@@ -173,6 +177,82 @@ function normalizarHabilidades(habilidadesRaw) {
   return habilidades;
 }
 
+async function buscarInfoEnWeb(nombre) {
+  const apiKey = process.env.GOOGLE_SEARCH_API_KEY;
+  const cx = process.env.GOOGLE_SEARCH_CX;
+
+  if (!apiKey || !cx) {
+    console.warn("⚠️ Sin GOOGLE_SEARCH_API_KEY o GOOGLE_SEARCH_CX, no se hace búsqueda web.");
+    return null;
+  }
+
+  // Queries concretas sobre elecciones 2026
+  const queries = [
+    `"${nombre}" candidatura a la Alcaldía de Cochabamba 2026`,
+    `"${nombre}" elecciones municipales Cochabamba`,
+    `"${nombre}" propuestas para Cochabamba`,
+     `"${nombre}" historia`,
+  ];
+
+  let resultadosAcumulados = [];
+
+  for (const q of queries) {
+    const url =
+      `https://customsearch.googleapis.com/customsearch/v1` +
+      `?key=${encodeURIComponent(apiKey)}` +
+      `&cx=${encodeURIComponent(cx)}` +
+      `&q=${encodeURIComponent(q)}`;
+
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) {
+        const texto = await resp.text();
+        console.error("❌ Error HTTP en búsqueda web:", resp.status, texto);
+        continue;
+      }
+
+      const data = await resp.json();
+
+      if (!data.items || !Array.isArray(data.items) || data.items.length === 0) {
+        console.log(`ℹ️ Sin resultados para query: "${q}"`);
+        continue;
+      }
+
+      console.log(
+        `🌐 Resultados encontrados para "${q}", usando esos datos para IA.`
+      );
+
+      const top3 = data.items.slice(0, 3).map((item) => ({
+        titulo: item.title,
+        link: item.link,
+        snippet: item.snippet,
+        fuente: item.displayLink,
+      }));
+
+      resultadosAcumulados = resultadosAcumulados.concat(top3);
+      break; // paramos en el primer query que traiga algo
+    } catch (err) {
+      console.error("❌ Error de red en búsqueda web:", err);
+    }
+  }
+
+  if (resultadosAcumulados.length === 0) {
+    return null;
+  }
+
+  const resumenTexto = resultadosAcumulados
+    .map(
+      (r, idx) =>
+        `[${idx + 1}] ${r.titulo} (${r.fuente})\n${r.snippet}\nURL: ${r.link}`
+    )
+    .join("\n\n");
+
+  return {
+    bruto: resultadosAcumulados,
+    resumen: resumenTexto,
+  };
+}
+
 // 🧩 Fallback puramente local (sin IA) pero coherente
 function generarHabilidadesLocal() {
   // Aquí puedes hacer lógica más elaborada si quieres.
@@ -205,9 +285,14 @@ async function llamarModeloIA(nombre, sigla) {
       fuente: "fallback_local",
       motivo: "no_openai_key",
       descripcionIA: "Perfil generado localmente sin IA externa.",
-      arquetipo_id: "tecnico_gestor"
+      arquetipo_id: "tecnico_gestor",
+      contextoWeb: null,
     };
   }
+
+  // 1) Buscar info en la web
+  const infoWeb = await buscarInfoEnWeb(nombre);
+  const contextoWeb = infoWeb?.resumen || null;
 
   const descripcionArquetipos = `
 Arquetipos disponibles (elige SOLO UNO usando el id):
@@ -224,10 +309,15 @@ Arquetipos disponibles (elige SOLO UNO usando el id):
   const prompt = `
 Eres un analista político de elecciones municipales en Cochabamba (Bolivia).
 
+A partir de:
+- El candidato: ${nombre || "Desconocido"} (${sigla || "N/A"})
+- La pregunta: "¿cómo se perfila como candidato a las elecciones municipales 2026?"
+- Y la siguiente información obtenida desde la web (si existe):
+
+${contextoWeb || "(Sin información relevante encontrada en la web.)"}
+
 Tarea:
-1) Con tu conocimiento entrenado (SIN navegar en internet, pero usando lo que conoces del contexto político boliviano),
-   analiza al candidato por su NOMBRE y cómo se perfila como candidato a las elecciones municipales 2026 en Cochabamba.
-2) Asigna EXACTAMENTE 10 puntos enteros en estas habilidades (0-10, suma total = 10):
+1) Asigna EXACTAMENTE 10 puntos enteros en estas habilidades (0-10, suma total = 10):
    - habilidad_crisis
    - habilidad_dialogo
    - habilidad_tecnica
@@ -235,11 +325,12 @@ Tarea:
    - habilidad_influencia
    - habilidad_reputacion
    - habilidad_leyes
-3) Escribe un PÁRRAFO de descripción del perfil político del candidato pensado para la Alcaldía de Cochabamba gestión 2026–2030.
-4) Elige el arquetipo que mejor encaje, usando SOLO uno de estos ids:
+2) Escribe DOS textos:
+   - "historia_biografica": historia resumida del candidato (trayectoria, cargos, momentos clave), en 3 a 6 frases.
+   - "descripcion_habilidades": descripción del perfil político y de sus fortalezas/debilidades para la Alcaldía de Cochabamba.
+3) Elige el arquetipo que mejor encaje, usando SOLO uno de estos ids:
    tecnico_gestor, comunicador_carisma, lider_vecinal, negociador_sindical,
    renovador_etico, gestor_crisis, jurista_normativo.
-   No devuelvas siempre el mismo arquetipo; elige el más coherente con el perfil que describas.
 
 ${descripcionArquetipos}
 
@@ -253,13 +344,10 @@ Responde SOLO con un JSON válido, sin texto adicional. Formato:
   "habilidad_influencia": 1,
   "habilidad_reputacion": 1,
   "habilidad_leyes": 1,
-  "descripcion": "Texto de descripción del perfil del candidato...",
+  "historia_biografica": "Texto de historia / biografía...",
+  "descripcion_habilidades": "Texto de descripción del perfil del candidato...",
   "arquetipo_sugerido": "tecnico_gestor"
 }
-
-Datos del candidato:
-Nombre: ${nombre || "Desconocido"}
-Sigla: ${sigla || "N/A"}
 `;
 
   try {
@@ -273,10 +361,10 @@ Sigla: ${sigla || "N/A"}
           role: "system",
           content:
             "Eres un analista político especializado en elecciones municipales en Bolivia. " +
-            "Debes responder ÚNICAMENTE con un JSON válido y nada más."
+            "Debes responder ÚNICAMENTE con un JSON válido y nada más.",
         },
-        { role: "user", content: prompt }
-      ]
+        { role: "user", content: prompt },
+      ],
     });
 
     let text = completion.choices?.[0]?.message?.content?.trim() || "";
@@ -292,31 +380,41 @@ Sigla: ${sigla || "N/A"}
         fuente: "fallback_local",
         motivo: "json_parse_error",
         descripcionIA: "Perfil generado localmente sin IA externa.",
-        arquetipo_id: "tecnico_gestor"
+        arquetipo_id: "tecnico_gestor",
+        contextoWeb,
       };
     }
 
     const habilidades = normalizarHabilidades(parsed);
 
-    return {
-      habilidades,
-      fuente: "openai",
-      descripcionIA: parsed.descripcion || "",
-      arquetipo_id: parsed.arquetipo_sugerido || null
-    };
+const descripcionIA =
+  parsed.descripcion_habilidades || parsed.descripcion || "";
+const historiaIA =
+  parsed.historia_biografica || "";
+
+return {
+  habilidades,
+  fuente: "openai",
+  descripcionIA,   // texto para el textarea
+  historiaIA,      // biografía/historia
+  arquetipo_id: parsed.arquetipo_sugerido || null,
+  contextoWeb,
+};
   } catch (err) {
     console.error("❌ Error llamando a OpenAI:", err);
     return {
       habilidades: generarHabilidadesLocal(),
-      fuente: "fallback_local",
-      motivo: err.code || err.message || "openai_error",
-      descripcionIA: "Perfil generado localmente sin IA externa.",
-      arquetipo_id: "tecnico_gestor"
+  fuente: "fallback_local",
+  motivo: "json_parse_error",
+  descripcionIA: "Perfil generado localmente sin IA externa.",
+  historiaIA: "",
+  arquetipo_id: "tecnico_gestor",
+  contextoWeb,
     };
   }
 }
 
 module.exports = {
   llamarModeloIA,
-  ARQUETIPOS
+  ARQUETIPOS,
 };

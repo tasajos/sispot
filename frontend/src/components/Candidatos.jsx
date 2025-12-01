@@ -8,19 +8,31 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3310';
 const MAX_PUNTOS = 10;
 
 
+
+
 function Candidatos() {
   const [subvista, setSubvista] = useState('registrar');
   const [lista, setLista] = useState([]);
   const [cargando, setCargando] = useState(false);
   const [mensaje, setMensaje] = useState(null);
   const [arquetipoIA, setArquetipoIA] = useState(null);
+  const [contextoWeb, setContextoWeb] = useState(null);
+  const [historiaIA, setHistoriaIA] = useState('');
+const [webResultados, setWebResultados] = useState([]);
 
+  const [webInfo, setWebInfo] = useState('');
   const [cargandoIA, setCargandoIA] = useState(false);
 
 const sugerirConIA = async () => {
   setMensaje(null);
 
-  if (!form.nombre) {
+  // Limpiamos historia/contexto previos para que no quede basura de otro candidato
+  setHistoriaIA('');
+  setContextoWeb('');
+  setWebResultados([]);
+  setWebInfo('');
+
+  if (!form.nombre || !form.nombre.trim()) {
     setMensaje({
       tipo: 'warning',
       texto: 'Primero escribe el nombre del candidato para poder sugerir con IA.'
@@ -41,22 +53,27 @@ const sugerirConIA = async () => {
       })
     });
 
+    if (!res.ok) {
+      throw new Error('Error HTTP llamando a la IA');
+    }
+
     const data = await res.json();
-    if (!data.ok) throw new Error(data.message || 'Error IA');
+if (!data.ok) throw new Error(data.message || "Error IA");
 
-    // Actualizamos las habilidades con lo que propone la IA
-    setForm(prev => ({
-      ...prev,
-      ...data.habilidades,
-      // descripción que vino de la IA (si existe)
-      habilidades_texto: data.descripcionIA || prev.habilidades_texto
-    }));
+// Actualizamos las habilidades y la descripción del textarea
+setForm(prev => ({
+  ...prev,
+  ...data.habilidades,
+  habilidades_texto: data.descripcionIA || prev.habilidades_texto
+}));
 
-    setArquetipoIA(
-      data.arquetipo || (data.arquetipo_id
-        ? { id: data.arquetipo_id, nombre: data.arquetipo_id }
-        : null)
-    );
+setArquetipoIA(data.arquetipo || null);
+
+// Guardamos historia e info web
+setHistoriaIA(data.historiaIA || "");          // 👈 biografía separada
+setWebInfo(data.webResumen || "");
+setWebResultados(data.webResultados || []);
+setContextoWeb(data.contextoWeb || "");
 
     const etiquetaFuente =
       data.fuente === 'openai'
@@ -64,7 +81,7 @@ const sugerirConIA = async () => {
         : 'modelo local (fallback)';
 
     setMensaje({
-      tipo: data.fuente === 'openai' ? 'info' : 'warning',
+      tipo: 'info',
       texto: `Habilidades sugeridas por ${etiquetaFuente}. Puedes ajustarlas antes de guardar.`
     });
   } catch (err) {
@@ -74,7 +91,7 @@ const sugerirConIA = async () => {
       texto: 'No se pudo obtener la sugerencia con IA.'
     });
   } finally {
-    // 👇 cerramos el modal SIEMPRE
+    // 👇 cerramos el modal SIEMPRE al final
     setCargandoIA(false);
   }
 };
@@ -252,6 +269,9 @@ const calcularTotal = (f) =>
   keyboard={false}
   centered
 >
+
+    
+      
   <Modal.Header>
     <Modal.Title>Cargando datos del candidato...</Modal.Title>
   </Modal.Header>
@@ -485,15 +505,47 @@ const calcularTotal = (f) =>
                 />
               </div>
 
-              <Button type="submit" variant="primary">
-                Guardar candidato
-              </Button>
 
-               
-            </Form>
-          </Card.Body>
-        </Card>
-      )}
+              {webInfo && (
+  <Card className="mb-3">
+    <Card.Header>Lo que se encontró en la web</Card.Header>
+    <Card.Body>
+      <small className="text-muted" style={{ whiteSpace: 'pre-line' }}>
+        {webInfo}
+      </small>
+    </Card.Body>
+      </Card>
+        )}
+
+        {/* HISTORIA DEL CANDIDATO (IA) */}
+        {historiaIA && (
+          <Card className="mb-3">
+            <Card.Header>Historia y perfil político del candidato (IA)</Card.Header>
+            <Card.Body>
+              <p style={{ whiteSpace: 'pre-wrap' }}>{historiaIA}</p>
+            </Card.Body>
+          </Card>
+        )}
+
+        {/* CONTEXTO WEB (resumen de Google) */}
+        {contextoWeb && (
+          <Card className="mb-3">
+            <Card.Header>Contexto encontrado en la web</Card.Header>
+            <Card.Body>
+              <small className="text-muted" style={{ whiteSpace: "pre-wrap" }}>
+                {contextoWeb}
+              </small>
+            </Card.Body>
+          </Card>
+        )}
+
+        <Button type="submit" variant="primary">
+          Guardar candidato
+        </Button>
+      </Form>
+    </Card.Body>
+  </Card>
+)}
 
       {subvista === 'listar' && (
         <Card className="shadow-sm">
