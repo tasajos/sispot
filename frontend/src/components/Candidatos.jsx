@@ -61,7 +61,7 @@ const sugerirConIA = async () => {
     if (!data.ok) throw new Error(data.message || 'Error IA');
     console.log('Respuesta IA /api/candidatos/sugerir-habilidades:', data);
 
-    // ⬇️ data.habilidades, data.descripcionIA, data.historia, etc vienen del backend
+    // ⬇️ data.habilidades, data.descripcionIA, data.historia, etc vienen del backend sd
     setForm(prev => ({
       ...prev,
       ...data.habilidades,
