@@ -54,6 +54,40 @@ app.post('/api/actividades', (req, res) => {
     [titulo, descripcion, tipo, estado, fecha_evento, distrito, responsable], (err, r) => err ? res.status(500).send(err) : res.json({ message: "OK", id: r.insertId }));
 });
 
+
+
+// Actualizar SOLO el estado de una actividad
+app.put('/api/actividades/:id/estado', (req, res) => {
+  const { estado } = req.body;
+  db.query(
+    "UPDATE actividades SET estado = ? WHERE id = ?",
+    [estado, req.params.id],
+    (err) => err ? res.status(500).send(err) : res.json({ message: "Estado actualizado" })
+  );
+});
+
+// (Opcional) Actualizar toda la actividad
+app.put('/api/actividades/:id', (req, res) => {
+  const { titulo, descripcion, tipo, estado, fecha_evento, distrito, responsable } = req.body;
+  const sql = `
+    UPDATE actividades 
+    SET titulo=?, descripcion=?, tipo=?, estado=?, fecha_evento=?, distrito=?, responsable=?
+    WHERE id=?
+  `;
+  db.query(sql, [titulo, descripcion, tipo, estado, fecha_evento, distrito, responsable, req.params.id],
+    (err) => err ? res.status(500).send(err) : res.json({ message: "Actividad actualizada" })
+  );
+});
+
+// Eliminar actividad
+app.delete('/api/actividades/:id', (req, res) => {
+  db.query("DELETE FROM actividades WHERE id = ?", [req.params.id],
+    (err) => err ? res.status(500).send(err) : res.json({ message: "Actividad eliminada" })
+  );
+});
+
+
+
 // --- COMPETIDORES ---
 app.get('/api/competidores', (req, res) => {
     db.query("SELECT * FROM competidores", (err, r) => err ? res.status(500).send(err) : res.json(r));
