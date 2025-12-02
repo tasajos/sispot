@@ -22,6 +22,9 @@ const Catalogos = () => {
   const [showModalArea, setShowModalArea] = useState(false);
   const [showModalProblema, setShowModalProblema] = useState(false);
   const [showModalDiagnostico, setShowModalDiagnostico] = useState(false);
+  const [otbSeleccionada, setOtbSeleccionada] = useState(null);
+  const [showModalDetalleDistrito, setShowModalDetalleDistrito] = useState(false);
+const [distritoSeleccionado, setDistritoSeleccionado] = useState(null);
 
   // EDICION Y CARGA
   const [modoEdicion, setModoEdicion] = useState(false);
@@ -50,6 +53,15 @@ const Catalogos = () => {
     (sum, d) => sum + Number(d.poblacion_est || 0),
     0
   );
+
+  const otbsDistrito = distritoSeleccionado
+  ? otbs.filter((o) => o.distrito === distritoSeleccionado.nombre)
+  : [];
+
+const subalcaldiaDistrito = distritoSeleccionado
+  ? subalcaldias.find((s) => s.id === distritoSeleccionado.subalcaldia_id)
+  : null;
+
 
   const [formSub, setFormSub] = useState(initialSub);
   const [formDistrito, setFormDistrito] = useState(initialDistrito);
@@ -108,6 +120,14 @@ const Catalogos = () => {
       });
       setShowModalDistrito(true);
   };
+
+const abrirModalDetalleDistrito = (distrito) => {
+  setDistritoSeleccionado(distrito);
+  setShowModalDetalleDistrito(true);
+};
+
+
+
 
   const abrirModalEditarOtb = (item) => {
       setModoEdicion(true); setIdEdicion(item.id); setMensajeExito('');
@@ -218,15 +238,7 @@ const Catalogos = () => {
     {subalcaldias.map((s) => {
       const distritosSub = obtenerDistritosDeSub(s.id);
 
-      // Ordenar distritos por población (descendente)
-const distritosOrdenados = [...distritos].sort(
-  (a, b) => Number(b.poblacion_est || 0) - Number(a.poblacion_est || 0)
-);
-
-const poblacionTotal = distritos.reduce(
-  (sum, d) => sum + Number(d.poblacion_est || 0),
-  0
-);
+  
 
       return (
         <Col key={s.id}>
@@ -301,6 +313,102 @@ const poblacionTotal = distritos.reduce(
                 )}
               </div>
             </Card.Body>
+
+
+
+<Modal
+  show={showModalDetalleDistrito}
+  onHide={() => setShowModalDetalleDistrito(false)}
+  centered
+  size="lg"
+>
+  <Modal.Header closeButton>
+    <Modal.Title className="h6">
+      {distritoSeleccionado
+        ? `OTBs del ${distritoSeleccionado.nombre}`
+        : 'OTBs del distrito'}
+    </Modal.Title>
+  </Modal.Header>
+
+  <Modal.Body>
+    {distritoSeleccionado && (
+      <>
+        {/* Resumen superior */}
+        <div className="mb-3">
+          <div className="d-flex justify-content-between align-items-center">
+            <div>
+              <small className="text-muted d-block mb-1">Zona</small>
+              <div className="fw-semibold">
+                {distritoSeleccionado.zona}{' '}
+                <Badge
+                  bg={getZonaBadgeVariant(distritoSeleccionado.zona)}
+                  className="ms-1"
+                >
+                  Zona
+                </Badge>
+              </div>
+            </div>
+
+            <div>
+              <small className="text-muted d-block mb-1">Subalcaldía</small>
+              <div className="fw-semibold">
+                {subalcaldiaDistrito
+                  ? subalcaldiaDistrito.nombre
+                  : 'Sin subalcaldía registrada'}
+              </div>
+            </div>
+
+            <div>
+              <small className="text-muted d-block mb-1">
+                Población estimada
+              </small>
+              <div className="fw-semibold">
+                {new Intl.NumberFormat('es-BO').format(
+                  Number(distritoSeleccionado.poblacion_est || 0)
+                )}{' '}
+                personas
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <hr />
+
+        {/* Listado de OTBs */}
+        <div className="d-flex justify-content-between align-items-center mb-2">
+          <h6 className="mb-0">OTBs registradas</h6>
+          <Badge bg="success">
+            {otbsDistrito.length} OTB
+            {otbsDistrito.length !== 1 ? 's' : ''}
+          </Badge>
+        </div>
+
+        {otbsDistrito.length > 0 ? (
+          <div className="list-group list-group-flush otb-modal-list">
+            {otbsDistrito.map((o) => (
+              <div
+                key={o.id}
+                className="list-group-item d-flex justify-content-between align-items-center py-2"
+              >
+                <div className="d-flex align-items-center gap-2">
+                  <span className="otb-dot" />
+                  <span className="small fw-semibold text-uppercase">
+                    {o.nombre}
+                  </span>
+                </div>
+                <small className="text-muted">ID #{o.id}</small>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-muted small fst-italic">
+            Este distrito aún no tiene OTBs registradas.
+          </div>
+        )}
+      </>
+    )}
+  </Modal.Body>
+</Modal>
 
             {/* FOOTER / ACCIONES */}
             <Card.Footer className="bg-transparent border-0 pt-0 d-flex justify-content-between align-items-center sub-card-footer">
@@ -446,44 +554,283 @@ const poblacionTotal = distritos.reduce(
           </Card.Body>
 
           {/* FOOTER / ACCIONES */}
-          <Card.Footer className="bg-transparent border-0 pt-0 d-flex justify-content-between align-items-center dist-card-footer">
-            <small className="text-muted">
-              Última actualización de datos de distrito
-            </small>
-            <div>
-              <Button
-                variant="link"
-                className="text-secondary p-0 me-2"
-                onClick={() => abrirModalEditarDistrito(d)}
-                title="Editar distrito"
-              >
-                <Pencil size={16} />
-              </Button>
-              <Button
-                variant="link"
-                className="text-danger p-0"
-                onClick={() => eliminarRegistro(d.id, 'catalogos/distritos')}
-                title="Eliminar distrito"
-              >
-                <Trash2 size={16} />
-              </Button>
-            </div>
-          </Card.Footer>
+                <Card.Footer className="bg-transparent border-0 pt-0 d-flex justify-content-between align-items-center dist-card-footer">
+  <div className="d-flex align-items-center gap-2">
+    <small className="text-muted">
+      Última actualización de datos de distrito
+    </small>
+    <Button
+      variant="outline-primary"
+      size="sm"
+      className="dist-ver-otbs-btn"
+      onClick={() => abrirModalDetalleDistrito(d)}
+    >
+      Ver OTBs
+    </Button>
+  </div>
+
+  <div>
+    <Button
+      variant="link"
+      className="text-secondary p-0 me-2"
+      onClick={() => abrirModalEditarDistrito(d)}
+      title="Editar distrito"
+    >
+      <Pencil size={16} />
+    </Button>
+    <Button
+      variant="link"
+      className="text-danger p-0"
+      onClick={() => eliminarRegistro(d.id, 'catalogos/distritos')}
+      title="Eliminar distrito"
+    >
+      <Trash2 size={16} />
+    </Button>
+  </div>
+</Card.Footer>
         </Card>
       </Col>
     ))}
   </Row>
 </Tab.Pane>
 
+{/* OTBs */}
+<Tab.Pane eventKey="otbs">
+  <div className="d-flex justify-content-between align-items-start mb-3 otb-header">
+    <div>
+      <h5 className="fw-bold mb-1 ps-2 border-start border-4 border-success">
+        OTBs / Barrios
+      </h5>
+      <small className="text-muted">
+        Listado de organizaciones territoriales por distrito y subalcaldía
+      </small>
+    </div>
 
+    <div className="d-flex align-items-center gap-2">
+      <input
+        type="text"
+        placeholder="Buscar OTB..."
+        className="form-control form-control-sm otb-search"
+        onChange={(e) => setFiltroOtb(e.target.value)}
+      />
+      <span className="badge bg-success-subtle text-success border otb-pill-count">
+        {otbsFiltradas.length} OTBs
+      </span>
+    </div>
+  </div>
 
+  <Row className="g-3">
+    {/* LISTA */}
+    <Col md={7}>
+      <Card className="otb-list-card shadow-sm h-100">
+        <Card.Body className="p-0">
+          <Table
+            hover
+            responsive
+            size="sm"
+            className="align-middle mb-0 otb-table"
+          >
+            <thead className="bg-light small">
+              <tr>
+                <th style={{ width: '55%' }}>OTB / Barrio</th>
+                <th style={{ width: '25%' }}>Distrito</th>
+                <th className="text-end" style={{ width: '20%' }}>
+                  Acciones
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {otbsFiltradas.map((o) => {
+                const distritoObj = distritos.find(
+                  (d) => d.nombre === o.distrito
+                );
+                const subalcaldiaObj = distritoObj
+                  ? subalcaldias.find(
+                      (s) => s.id === distritoObj.subalcaldia_id
+                    )
+                  : null;
 
-                {/* OTBs */}
-                <Tab.Pane eventKey="otbs">
-                  <div className="d-flex justify-content-between mb-3"><h5 className="fw-bold ps-2 border-start border-4 border-success">OTBs</h5><input type="text" placeholder="Buscar..." className="form-control form-control-sm w-25" onChange={e => setFiltroOtb(e.target.value)}/></div>
-                  <Table hover responsive size="sm" className="align-middle"><thead className="bg-light small"><tr><th>OTB</th><th>Distrito</th><th className="text-end">Acciones</th></tr></thead><tbody>{otbsFiltradas.map(o => (<tr key={o.id}><td className="fw-bold">{o.nombre}</td><td><Badge bg="light" text="dark" className="border">{o.distrito}</Badge></td><td className="text-end"><Button variant="link" onClick={() => abrirModalEditarOtb(o)}><Pencil size={14}/></Button><Button variant="link" className="text-danger" onClick={() => eliminarRegistro(o.id, 'catalogos/otbs')}><Trash2 size={14}/></Button></td></tr>))}</tbody></Table>
-                </Tab.Pane>
+                const esSeleccionada =
+                  otbSeleccionada && otbSeleccionada.id === o.id;
 
+                return (
+                  <tr
+                    key={o.id}
+                    className={esSeleccionada ? 'otb-row-selected' : ''}
+                    onClick={() =>
+                      setOtbSeleccionada({
+                        ...o,
+                        distritoObj,
+                        subalcaldiaObj,
+                      })
+                    }
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <td className="fw-semibold text-uppercase small">
+                      {o.nombre}
+                    </td>
+                    <td>
+                      <Badge
+                        bg="light"
+                        text="dark"
+                        className="border otb-distrito-badge"
+                      >
+                        {o.distrito}
+                      </Badge>
+                    </td>
+                    <td className="text-end">
+                      <Button
+                        variant="link"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          abrirModalEditarOtb(o);
+                        }}
+                      >
+                        <Pencil size={14} />
+                      </Button>
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="text-danger"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          eliminarRegistro(o.id, 'catalogos/otbs');
+                        }}
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </Table>
+        </Card.Body>
+      </Card>
+    </Col>
+
+    {/* DETALLE */}
+    <Col md={5}>
+      <Card className="otb-detail-card shadow-sm h-100">
+        <Card.Body>
+          {otbSeleccionada ? (
+            <>
+              {/* Header con “avatar” */}
+              <div className="d-flex align-items-center gap-3 mb-3">
+                <div className="otb-avatar">
+                  {otbSeleccionada.nombre.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <h6 className="mb-0 text-uppercase">
+                    {otbSeleccionada.nombre}
+                  </h6>
+                  <small className="text-muted">
+                    ID #{otbSeleccionada.id}
+                  </small>
+                </div>
+              </div>
+
+              {/* Distrito */}
+              <div className="mb-3">
+                <small className="text-muted d-block mb-1">Distrito</small>
+                <div className="d-flex justify-content-between align-items-center">
+                  <span className="fw-semibold">
+                    {otbSeleccionada.distrito}
+                  </span>
+                  {otbSeleccionada.distritoObj && (
+                    <Badge
+                      bg={getZonaBadgeVariant(
+                        otbSeleccionada.distritoObj.zona
+                      )}
+                      className="otb-zona-pill"
+                    >
+                      Zona {otbSeleccionada.distritoObj.zona}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              {/* Subalcaldía */}
+              <div className="mb-3">
+                <small className="text-muted d-block mb-1">
+                  Subalcaldía
+                </small>
+                <span className="fw-semibold">
+                  {otbSeleccionada.subalcaldiaObj
+                    ? otbSeleccionada.subalcaldiaObj.nombre
+                    : 'Sin subalcaldía registrada'}
+                </span>
+              </div>
+
+              {/* Población y OTBs del distrito */}
+              {otbSeleccionada.distritoObj && (
+                <>
+                  <div className="mb-3">
+                    <small className="text-muted d-block mb-1">
+                      Población estimada del distrito
+                    </small>
+                    <div className="fw-semibold">
+                      {new Intl.NumberFormat('es-BO').format(
+                        Number(
+                          otbSeleccionada.distritoObj.poblacion_est || 0
+                        )
+                      )}{' '}
+                      personas
+                    </div>
+                  </div>
+
+                  <div className="small text-muted">
+                    {otbSeleccionada.distritoObj.total_otbs || 0} OTBs
+                    registradas en este distrito.
+                  </div>
+                </>
+              )}
+            </>
+          ) : (
+            <div className="text-center text-muted py-5">
+              <MapPin size={32} className="mb-2" />
+              <p className="mb-0">
+                Selecciona una OTB de la lista para ver el detalle de su
+                distrito y subalcaldía.
+              </p>
+            </div>
+          )}
+        </Card.Body>
+
+        {otbSeleccionada && (
+          <Card.Footer className="bg-light border-top d-flex justify-content-between align-items-center">
+            <small className="text-muted">
+              Gestión rápida de la OTB seleccionada
+            </small>
+            <div>
+              <Button
+                variant="link"
+                size="sm"
+                onClick={() => abrirModalEditarOtb(otbSeleccionada)}
+              >
+                <Pencil size={14} />
+              </Button>
+              <Button
+                variant="link"
+                size="sm"
+                className="text-danger"
+                onClick={() =>
+                  eliminarRegistro(
+                    otbSeleccionada.id,
+                    'catalogos/otbs'
+                  )
+                }
+              >
+                <Trash2 size={14} />
+              </Button>
+            </div>
+          </Card.Footer>
+        )}
+      </Card>
+    </Col>
+  </Row>
+</Tab.Pane>
                 {/* TEMAS */}
                 <Tab.Pane eventKey="temas">
                    <h5 className="fw-bold mb-3 ps-2 border-start border-4 border-warning">Áreas y Problemas</h5>
