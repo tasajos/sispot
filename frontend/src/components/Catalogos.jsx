@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Tab, Nav, Table, Badge, Button, Row, Col, Card, Modal, Form, Alert } from 'react-bootstrap';
 import { Map, MapPin, Layers, Plus, CheckCircle, Pencil, Trash2, AlertTriangle, Activity, Search, Landmark } from 'lucide-react';
+import './styles/catalogos.css';
 
 const Catalogos = () => {
   const [key, setKey] = useState('subalcaldias');
@@ -37,12 +38,27 @@ const Catalogos = () => {
   const initialProblema = { nombre: '', area_id: '' };
   const initialDiagnostico = { otb_id: '', problema_id: '', prioridad: 'Alta' };
 
+
+
+   // 👉 ORDENAR DISTRITOS POR POBLACIÓN (MAYOR → MENOR)
+  const distritosOrdenados = [...distritos].sort(
+    (a, b) => Number(b.poblacion_est || 0) - Number(a.poblacion_est || 0)
+  );
+
+  // 👉 POBLACIÓN TOTAL
+  const poblacionTotal = distritos.reduce(
+    (sum, d) => sum + Number(d.poblacion_est || 0),
+    0
+  );
+
   const [formSub, setFormSub] = useState(initialSub);
   const [formDistrito, setFormDistrito] = useState(initialDistrito);
   const [formOtb, setFormOtb] = useState(initialOtb);
   const [formArea, setFormArea] = useState(initialArea);
   const [formProblema, setFormProblema] = useState(initialProblema);
   const [formDiagnostico, setFormDiagnostico] = useState(initialDiagnostico);
+
+
 
   const cargarDatos = async () => {
     try {
@@ -125,6 +141,26 @@ const Catalogos = () => {
   };
 
   const otbsFiltradas = otbs.filter(o => o.nombre.toLowerCase().includes(filtroOtb.toLowerCase()));
+  const totalOtbsDistritos = distritos.reduce(
+  (sum, d) => sum + Number(d.total_otbs || 0),
+  0
+);
+
+  // Distritos que pertenecen a una subalcaldía
+  const obtenerDistritosDeSub = (subId) =>
+    distritos.filter(d => d.subalcaldia_id === subId);
+
+  // Color visual para la zona
+  const getZonaBadgeVariant = (zona) => {
+    switch (zona) {
+      case 'Norte':  return 'primary';
+      case 'Sur':    return 'danger';
+      case 'Este':   return 'success';
+      case 'Oeste':  return 'warning';
+      case 'Centro': return 'secondary';
+      default:       return 'light';
+    }
+  };
 
   return (
     <div className="d-flex flex-column h-100 w-100">
@@ -157,32 +193,290 @@ const Catalogos = () => {
             <Col md={9} className="ps-3 h-100 overflow-auto custom-scroll">
               <Tab.Content className="h-100">
                 {/* SUBALCALDIAS */}
-                <Tab.Pane eventKey="subalcaldias">
-                  <h5 className="fw-bold mb-3 ps-2 border-start border-4 border-dark">Subalcaldías</h5>
-                  <Table hover responsive className="align-middle">
-                    <thead className="bg-light small"><tr><th>Nombre</th><th>Responsable</th><th className="text-center">Distritos</th><th className="text-end">Acciones</th></tr></thead>
-                    <tbody>{subalcaldias.map(s => (<tr key={s.id}><td className="fw-bold">{s.nombre}</td><td className="small">{s.responsable}</td><td className="text-center fw-bold">{s.total_distritos}</td><td className="text-end"><Button variant="link" onClick={() => abrirModalEditarSub(s)}><Pencil size={16}/></Button><Button variant="link" className="text-danger" onClick={() => eliminarRegistro(s.id, 'catalogos/subalcaldias')}><Trash2 size={16}/></Button></td></tr>))}</tbody>
-                  </Table>
-                </Tab.Pane>
+               <Tab.Pane eventKey="subalcaldias">
+  <div className="d-flex justify-content-between align-items-start mb-3 sub-header">
+    <div>
+      <h5 className="fw-bold mb-1 ps-2 border-start border-4 border-dark">
+        Subalcaldías
+      </h5>
+      <small className="text-muted">
+        Relación Subalcaldía → Distritos y responsable político
+      </small>
+    </div>
 
-                {/* DISTRITOS */}
-                <Tab.Pane eventKey="distritos">
-                  <h5 className="fw-bold mb-3 ps-2 border-start border-4 border-primary">Distritos</h5>
-                  <Table hover responsive className="align-middle">
-                    <thead className="bg-light small"><tr><th>Nombre</th><th>Subalcaldía</th><th>Zona</th><th className="text-center">OTBs</th><th className="text-end">Acciones</th></tr></thead>
-                    <tbody>
-                      {distritos.map(d => (
-                        <tr key={d.id}>
-                          <td className="fw-bold">{d.nombre}</td>
-                          <td><Badge bg="light" text="dark" className="border">{d.subalcaldia || "Sin asignar"}</Badge></td>
-                          <td><Badge bg="info">{d.zona}</Badge></td>
-                          <td className="text-center fw-bold">{d.total_otbs}</td>
-                          <td className="text-end"><Button variant="link" onClick={() => abrirModalEditarDistrito(d)}><Pencil size={16}/></Button><Button variant="link" className="text-danger" onClick={() => eliminarRegistro(d.id, 'catalogos/distritos')}><Trash2 size={16}/></Button></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
-                </Tab.Pane>
+    <div className="text-end">
+      <span className="badge bg-dark me-2 sub-pill">
+        {subalcaldias.length} subalcaldías
+      </span>
+      <span className="badge bg-light text-dark border sub-pill">
+        {distritos.length} distritos
+      </span>
+    </div>
+  </div>
+
+  <Row xs={1} md={2} className="g-3">
+    {subalcaldias.map((s) => {
+      const distritosSub = obtenerDistritosDeSub(s.id);
+
+      // Ordenar distritos por población (descendente)
+const distritosOrdenados = [...distritos].sort(
+  (a, b) => Number(b.poblacion_est || 0) - Number(a.poblacion_est || 0)
+);
+
+const poblacionTotal = distritos.reduce(
+  (sum, d) => sum + Number(d.poblacion_est || 0),
+  0
+);
+
+      return (
+        <Col key={s.id}>
+          <Card className="sub-card shadow-sm h-100">
+            {/* HEADER */}
+            <div className="sub-card-header">
+              <div className="d-flex align-items-center gap-2">
+                <div className="sub-icon-wrapper">
+                  <Landmark size={18} />
+                </div>
+                <div>
+                  <div className="fw-semibold">{s.nombre}</div>
+                  <small className="text-white-50">ID #{s.id}</small>
+                </div>
+              </div>
+
+              <div className="text-end">
+                <div className="sub-chip-counter">
+                  {distritosSub.length} distrito
+                  {distritosSub.length !== 1 ? 's' : ''}
+                </div>
+              </div>
+            </div>
+
+            {/* BODY */}
+            <Card.Body className="sub-card-body">
+              <div className="mb-3">
+                <small className="text-muted d-block mb-1">
+                  Responsable
+                </small>
+                {s.responsable ? (
+                  <div className="d-flex align-items-center gap-2">
+                    <div className="sub-avatar">
+                      {s.responsable.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="fw-semibold small">
+                        {s.responsable}
+                      </div>
+                      <small className="text-muted">Subalcalde/a</small>
+                    </div>
+                  </div>
+                ) : (
+                  <span className="text-muted small fst-italic">
+                    Sin responsable registrado
+                  </span>
+                )}
+              </div>
+
+              <div>
+                <small className="text-muted d-block mb-1">
+                  Distritos asignados
+                </small>
+
+                {distritosSub.length > 0 ? (
+                  <div className="d-flex flex-wrap gap-2 sub-distritos-wrapper">
+                    {distritosSub.map((d) => (
+                      <span
+                        key={d.id}
+                        className={`badge rounded-pill sub-distrito-badge bg-${getZonaBadgeVariant(
+                          d.zona
+                        )}`}
+                      >
+                        {d.nombre}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <small className="text-muted fst-italic">
+                    Esta subalcaldía aún no tiene distritos vinculados.
+                  </small>
+                )}
+              </div>
+            </Card.Body>
+
+            {/* FOOTER / ACCIONES */}
+            <Card.Footer className="bg-transparent border-0 pt-0 d-flex justify-content-between align-items-center sub-card-footer">
+              <small className="text-muted">
+                Última actualización • Catálogo territorial
+              </small>
+              <div>
+                <Button
+                  variant="link"
+                  className="text-secondary p-0 me-2"
+                  onClick={() => abrirModalEditarSub(s)}
+                  title="Editar subalcaldía"
+                >
+                  <Pencil size={16} />
+                </Button>
+                <Button
+                  variant="link"
+                  className="text-danger p-0"
+                  onClick={() =>
+                    eliminarRegistro(s.id, 'catalogos/subalcaldias')
+                  }
+                  title="Eliminar subalcaldía"
+                >
+                  <Trash2 size={16} />
+                </Button>
+              </div>
+            </Card.Footer>
+          </Card>
+        </Col>
+      );
+    })}
+  </Row>
+</Tab.Pane>
+
+
+
+
+{/* DISTRITOS */}
+<Tab.Pane eventKey="distritos">
+  <div className="d-flex justify-content-between align-items-start mb-3 dist-header">
+  <div>
+    <h5 className="fw-bold mb-1 ps-2 border-start border-4 border-primary">
+      Distritos
+    </h5>
+    <small className="text-muted">
+      Vista por zona, subalcaldía, OTBs y población estimada
+    </small>
+  </div>
+
+    <div className="text-end">
+    <span className="badge bg-primary dist-pill me-2">
+      {distritos.length} distritos
+    </span>
+    <span className="badge bg-light text-dark border dist-pill">
+      {totalOtbsDistritos} OTBs / barrios
+    </span>
+  </div>
+</div>
+
+{/* NUEVO CARD DE RESUMEN GENERAL */}
+<div className="mb-4">
+  <Card className="shadow-sm resumen-card">
+    <Card.Body className="d-flex justify-content-between align-items-center">
+      
+      <div className="text-center flex-fill">
+        <div className="resumen-number">{distritos.length}</div>
+        <div className="resumen-label">Distritos Totales</div>
+      </div>
+
+      <div className="divider-v"></div>
+
+      <div className="text-center flex-fill">
+        <div className="resumen-number">
+          {new Intl.NumberFormat('es-BO').format(poblacionTotal)}
+        </div>
+        <div className="resumen-label">Población Total</div>
+      </div>
+
+    </Card.Body>
+  </Card>
+</div>
+
+  <Row xs={1} md={2} className="g-3">
+     {/* distr     {distritos.map((d) => (*/}
+
+       {distritosOrdenados.map((d) => (
+      <Col key={d.id}>
+        <Card className="dist-card shadow-sm h-100">
+          {/* HEADER */}
+          <div className="dist-card-header d-flex justify-content-between align-items-center">
+            <div className="d-flex align-items-center gap-2">
+              <div className="dist-icon-wrapper">
+                <Map size={18} />
+              </div>
+              <div>
+                <div className="fw-semibold">{d.nombre}</div>
+                <small className="text-white-50">
+                  {d.subalcaldia ? d.subalcaldia : 'Sin subalcaldía'}
+                </small>
+              </div>
+            </div>
+
+            <div className="text-end">
+              <span
+                className={`badge rounded-pill dist-zona-pill bg-${getZonaBadgeVariant(
+                  d.zona
+                )}`}
+              >
+                Zona {d.zona}
+              </span>
+            </div>
+          </div>
+
+          {/* BODY */}
+          <Card.Body className="dist-card-body">
+            <div className="d-flex justify-content-between mb-2">
+              {/* Población */}
+              <div>
+                <small className="text-muted d-block mb-1">Población estimada</small>
+                <div className="dist-kpi">
+                  {new Intl.NumberFormat('es-BO').format(
+                    Number(d.poblacion_est || 0)
+                  )}{' '}
+                  <span className="dist-kpi-unit">personas</span>
+                </div>
+              </div>
+
+              {/* OTBs */}
+              <div className="text-end">
+                <small className="text-muted d-block mb-1">OTBs / Barrios</small>
+                <div className="dist-kpi">
+                  {d.total_otbs || 0}{' '}
+                  <span className="dist-kpi-unit">registradas</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="dist-meta">
+              <small className="text-muted">
+                ID #{d.id} • Catálogo territorial municipal
+              </small>
+            </div>
+          </Card.Body>
+
+          {/* FOOTER / ACCIONES */}
+          <Card.Footer className="bg-transparent border-0 pt-0 d-flex justify-content-between align-items-center dist-card-footer">
+            <small className="text-muted">
+              Última actualización de datos de distrito
+            </small>
+            <div>
+              <Button
+                variant="link"
+                className="text-secondary p-0 me-2"
+                onClick={() => abrirModalEditarDistrito(d)}
+                title="Editar distrito"
+              >
+                <Pencil size={16} />
+              </Button>
+              <Button
+                variant="link"
+                className="text-danger p-0"
+                onClick={() => eliminarRegistro(d.id, 'catalogos/distritos')}
+                title="Eliminar distrito"
+              >
+                <Trash2 size={16} />
+              </Button>
+            </div>
+          </Card.Footer>
+        </Card>
+      </Col>
+    ))}
+  </Row>
+</Tab.Pane>
+
+
+
 
                 {/* OTBs */}
                 <Tab.Pane eventKey="otbs">
