@@ -2,7 +2,8 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Card, Row, Col, Badge, ProgressBar, Modal, Button, Spinner } from 'react-bootstrap';
-import { User, ShieldAlert, TrendingDown, Target, Brain, Activity } from 'lucide-react';
+import { User, ShieldAlert, TrendingDown, Target, Brain, Activity,Download} from 'lucide-react';
+import jsPDF from 'jspdf';
 import './styles/competidores.css';
 
 const Competidores = () => {
@@ -19,6 +20,87 @@ const Competidores = () => {
       .then((res) => setCandidatos(res.data))
       .catch((err) => console.error('Error cargando candidatos:', err));
   }, []);
+
+
+  const exportarFodaPdf = () => {
+  if (!candidatoSeleccionado || !fodaData) return;
+
+  const doc = new jsPDF();
+  let y = 10;
+
+  // Título
+  doc.setFontSize(14);
+  doc.text(
+    `Análisis FODA – ${candidatoSeleccionado.nombre}`,
+    10,
+    y
+  );
+  y += 8;
+
+  // Datos básicos
+  doc.setFontSize(10);
+  doc.text(`Sigla: ${candidatoSeleccionado.sigla || '-'}`, 10, y);
+  y += 6;
+
+  const acept = fodaData.aceptacion || {};
+  doc.text(
+    `Aceptación aparente: ${(acept.nivel || 'Desconocida').toUpperCase()} (${acept.porcentaje_estimado || 0}%)`,
+    10,
+    y
+  );
+  y += 6;
+
+  // Tendencias
+  if (fodaData.tendencias) {
+    const tendenciasLines = doc.splitTextToSize(
+      `Tendencias y narrativa actual: ${fodaData.tendencias}`,
+      190
+    );
+    doc.text(tendenciasLines, 10, y);
+    y += tendenciasLines.length * 5 + 4;
+  }
+
+  const addListaFoda = (titulo, items) => {
+    if (!items || !items.length) return;
+
+    // Salto de página si se acaba el espacio
+    if (y > 270) {
+      doc.addPage();
+      y = 10;
+    }
+
+    doc.setFont(undefined, 'bold');
+    doc.text(titulo, 10, y);
+    y += 5;
+
+    doc.setFont(undefined, 'normal');
+    const maxWidth = 180;
+
+    items.forEach((it) => {
+      const lines = doc.splitTextToSize(`• ${it}`, maxWidth);
+      if (y + lines.length * 5 > 280) {
+        doc.addPage();
+        y = 10;
+      }
+      doc.text(lines, 10, y);
+      y += lines.length * 5;
+    });
+
+    y += 3;
+  };
+
+  addListaFoda('Fortalezas', fodaData.foda?.fortalezas);
+  addListaFoda('Oportunidades', fodaData.foda?.oportunidades);
+  addListaFoda('Debilidades', fodaData.foda?.debilidades);
+  addListaFoda('Amenazas', fodaData.foda?.amenazas);
+
+  const nombreFile = (candidatoSeleccionado.nombre || 'candidato')
+    .replace(/\s+/g, '_')
+    .toLowerCase();
+
+  doc.save(`foda_${nombreFile}.pdf`);
+};
+
 
   const abrirFoda = async (cand) => {
     setCandidatoSeleccionado(cand);
@@ -175,6 +257,7 @@ const Competidores = () => {
   dialogClassName="foda-modal"
 >
   <Modal.Header closeButton className="foda-modal-header">
+  <div className="d-flex justify-content-between align-items-start w-100">
     <div>
       <Modal.Title className="h6 mb-0">
         Análisis FODA – {candidatoSeleccionado?.nombre || 'Candidato'}
@@ -183,7 +266,21 @@ const Competidores = () => {
         Basado en IA + búsquedas web (no son encuestas oficiales).
       </small>
     </div>
-  </Modal.Header>
+
+    {/* Botón PDF solo cuando ya hay datos y no está cargando */}
+    {!loadingFoda && fodaData && (
+      <Button
+        variant="outline-secondary"
+        size="sm"
+        className="ms-3 d-flex align-items-center gap-1 rounded-pill"
+        onClick={exportarFodaPdf}
+      >
+        <Download size={16} />
+        <span>PDF</span>
+      </Button>
+    )}
+  </div>
+</Modal.Header>
 
   <Modal.Body className="foda-modal-body">
     {loadingFoda && (
