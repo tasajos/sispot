@@ -621,37 +621,31 @@ app.post("/api/candidatos/sugerir-habilidades", async (req, res) => {
 
 
 // --- FODA IA por candidato ---
-app.get('/api/candidatos/:id/foda', async (req, res) => {
+app.get('/api/candidatos/:id/foda', (req, res) => {
   const { id } = req.params;
 
-  db.query(
-    "SELECT id, nombre, sigla FROM candidatos WHERE id = ?",
-    [id],
-    async (err, rows) => {
-      if (err) return res.status(500).send(err);
-      if (!rows.length)
-        return res.status(404).json({ message: "Candidato no encontrado" });
+  const sql = `
+    SELECT id, nombre, sigla
+    FROM candidatos
+    WHERE id = ?
+  `;
 
-      const candidato = rows[0];
-
-      try {
-        const analisis = await generarFodaCandidato(
-          candidato.nombre,
-          candidato.sigla
-        );
-
-        res.json({
-          candidato,
-          ...analisis,
-        });
-      } catch (e) {
-        console.error("❌ Error generando FODA candidato:", e);
-        res
-          .status(500)
-          .json({ message: "Error al generar análisis FODA con IA" });
-      }
+  db.query(sql, [id], async (err, rows) => {
+    if (err) return res.status(500).send(err);
+    if (!rows || rows.length === 0) {
+      return res.status(404).json({ message: "Candidato no encontrado" });
     }
-  );
+
+    const cand = rows[0];
+
+    try {
+      const resultadoFoda = await generarFodaCandidato(cand.nombre, cand.sigla);
+      res.json(resultadoFoda);
+    } catch (e) {
+      console.error("❌ Error generando FODA:", e);
+      res.status(500).json({ message: "Error al generar FODA" });
+    }
+  });
 });
 
 

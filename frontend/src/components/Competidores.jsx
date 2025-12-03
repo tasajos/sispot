@@ -167,158 +167,180 @@ const Competidores = () => {
       </Row>
 
       {/* MODAL FODA */}
-      <Modal
-        show={showModalFoda}
-        onHide={() => setShowModalFoda(false)}
-        centered
-        size="lg"
-        dialogClassName="foda-modal"
-      >
-        <Modal.Header closeButton className="foda-modal-header">
-          <div>
-            <Modal.Title className="h6 mb-0">
-              Análisis FODA –{' '}
-              {candidatoSeleccionado?.nombre || 'Candidato'}
-            </Modal.Title>
-            <small className="text-muted">
-              Basado en IA + búsquedas web (no son encuestas oficiales).
-            </small>
-          </div>
-        </Modal.Header>
+<Modal
+  show={showModalFoda}
+  onHide={() => setShowModalFoda(false)}
+  centered
+  size="lg"
+  dialogClassName="foda-modal"
+>
+  <Modal.Header closeButton className="foda-modal-header">
+    <div>
+      <Modal.Title className="h6 mb-0">
+        Análisis FODA – {candidatoSeleccionado?.nombre || 'Candidato'}
+      </Modal.Title>
+      <small className="text-muted">
+        Basado en IA + búsquedas web (no son encuestas oficiales).
+      </small>
+    </div>
+  </Modal.Header>
 
-        <Modal.Body className="foda-modal-body">
-          {loadingFoda && (
-            <div className="text-center py-5">
-              <Spinner animation="border" size="sm" />{' '}
-              <small className="text-muted">
-                Generando análisis FODA con IA...
-              </small>
+  <Modal.Body className="foda-modal-body">
+    {loadingFoda && (
+      <div className="text-center py-5">
+        <Spinner animation="border" size="sm" />{' '}
+        <small className="text-muted">
+          Generando análisis FODA con IA...
+        </small>
+      </div>
+    )}
+
+    {/* 👉 TODO el contenido solo se renderiza si fodaData no es null */}
+    {!loadingFoda && fodaData && (
+      <>
+        {/* Aceptación general */}
+        <div className="mb-4">
+          <div className="d-flex justify-content-between align-items-center mb-2">
+            <span className="small text-muted fw-semibold text-uppercase">
+              Grado de aceptación aparente
+            </span>
+            <Badge
+              bg={getColorAceptacion(fodaData.aceptacion?.nivel)}
+              className="rounded-pill"
+            >
+              {fodaData.aceptacion?.nivel?.toUpperCase() || 'DESCONOCIDA'}
+            </Badge>
+          </div>
+          <ProgressBar
+            now={fodaData.aceptacion?.porcentaje_estimado || 0}
+            variant={getColorAceptacion(fodaData.aceptacion?.nivel)}
+            style={{ height: '7px' }}
+          />
+          <small className="text-muted d-block mt-1">
+            {fodaData.aceptacion?.explicacion}
+          </small>
+        </div>
+
+        {/* Tendencias */}
+        <div className="bg-light rounded-3 p-3 mb-4">
+          <div className="d-flex align-items-center gap-2 mb-2 text-danger">
+            <TrendingDown size={16} />
+            <span className="fw-bold small">
+              Tendencias y narrativa actual:
+            </span>
+          </div>
+          <p className="mb-0 small text-secondary">
+            {fodaData.tendencias}
+          </p>
+        </div>
+
+        {/* Cuadrantes FODA */}
+        <Row className="g-3">
+          <Col md={6}>
+            <Card className="h-100 border-success-subtle foda-card">
+              <Card.Body>
+                <h6 className="text-success fw-bold mb-2">Fortalezas</h6>
+                <ul className="small mb-0 ps-3">
+                  {(fodaData.foda?.fortalezas || []).map((item, idx) => (
+                    <li key={idx}>{item}</li>
+                  ))}
+                </ul>
+              </Card.Body>
+            </Card>
+          </Col>
+
+          <Col md={6}>
+            <Card className="h-100 border-primary-subtle foda-card">
+              <Card.Body>
+                <h6 className="text-primary fw-bold mb-2">Oportunidades</h6>
+                <ul className="small mb-0 ps-3">
+                  {(fodaData.foda?.oportunidades || []).map((item, idx) => (
+                    <li key={idx}>{item}</li>
+                  ))}
+                </ul>
+              </Card.Body>
+            </Card>
+          </Col>
+
+          <Col md={6}>
+            <Card className="h-100 border-warning-subtle foda-card">
+              <Card.Body>
+                <h6 className="text-warning fw-bold mb-2">Debilidades</h6>
+                <ul className="small mb-0 ps-3">
+                  {(fodaData.foda?.debilidades || []).map((item, idx) => (
+                    <li key={idx}>{item}</li>
+                  ))}
+                </ul>
+              </Card.Body>
+            </Card>
+          </Col>
+
+          <Col md={6}>
+            <Card className="h-100 border-danger-subtle foda-card">
+              <Card.Body>
+                <h6 className="text-danger fw-bold mb-2">Amenazas</h6>
+                <ul className="small mb-0 ps-3">
+                  {(fodaData.foda?.amenazas || []).map((item, idx) => (
+                    <li key={idx}>{item}</li>
+                  ))}
+                </ul>
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
+
+        {/* Fuentes principales consultadas – SOLO UNA VEZ, alineadas */}
+        {Array.isArray(fodaData.fuentesPrincipales) &&
+          fodaData.fuentesPrincipales.length > 0 && (
+            <div className="bg-white border rounded-3 p-3 mt-4">
+              <div className="d-flex align-items-center gap-2 mb-2 text-muted">
+                <ShieldAlert size={16} />
+                <span className="fw-bold small">
+                  Fuentes principales consultadas (Facebook y medios):
+                </span>
+              </div>
+              <div className="fuentes-scroll">
+                <ul className="small mb-0 ps-3">
+                  {fodaData.fuentesPrincipales.map((f, idx) => (
+                    <li key={idx} className="mb-1">
+                      <span className="fw-semibold">
+                        [{f.tipo === 'facebook'
+                          ? 'Facebook'
+                          : f.tipo === 'medio'
+                          ? 'Medio'
+                          : 'Web'}]
+                      </span>{' '}
+                      <a
+                        href={f.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-decoration-none"
+                      >
+                        {f.titulo}
+                      </a>{' '}
+                      <span className="text-muted">({f.fuente})</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           )}
+      </>
+    )}
+  </Modal.Body>
 
-          {!loadingFoda && fodaData && (
-            <>
-              {/* Aceptación */}
-              <div className="mb-4">
-                <div className="d-flex justify-content-between align-items-center mb-2">
-                  <span className="small text-muted fw-semibold text-uppercase">
-                    Grado de aceptación aparente
-                  </span>
-                  <Badge
-                    bg={getColorAceptacion(fodaData.aceptacion?.nivel)}
-                    className="rounded-pill"
-                  >
-                    {fodaData.aceptacion?.nivel?.toUpperCase() ||
-                      'DESCONOCIDA'}
-                  </Badge>
-                </div>
-                <ProgressBar
-                  now={fodaData.aceptacion?.porcentaje_estimado || 0}
-                  variant={getColorAceptacion(fodaData.aceptacion?.nivel)}
-                  style={{ height: '7px' }}
-                />
-                <small className="text-muted d-block mt-1">
-                  {fodaData.aceptacion?.explicacion}
-                </small>
-              </div>
+  <Modal.Footer className="foda-modal-footer">
+    <small className="text-muted me-auto">
+      Este análisis es orientativo y se basa en información pública
+      disponible. No reemplaza estudios de opinión formales.
+    </small>
+    <Button variant="light" onClick={() => setShowModalFoda(false)}>
+      Cerrar
+    </Button>
+  </Modal.Footer>
+</Modal>
 
-              {/* Tendencias */}
-              <div className="bg-light rounded-3 p-3 mb-4">
-                <div className="d-flex align-items-center gap-2 mb-2 text-danger">
-                  <TrendingDown size={16} />
-                  <span className="fw-bold small">
-                    Tendencias y narrativa actual:
-                  </span>
-                </div>
-                <p className="mb-0 small text-secondary">
-                  {fodaData.tendencias}
-                </p>
-              </div>
-
-              {/* Cuadrantes FODA */}
-              <Row className="g-3">
-                <Col md={6}>
-                  <Card className="h-100 border-success-subtle foda-card">
-                    <Card.Body>
-                      <h6 className="text-success fw-bold mb-2">
-                        Fortalezas
-                      </h6>
-                      <ul className="small mb-0 ps-3">
-                        {(fodaData.foda?.fortalezas || []).map(
-                          (item, idx) => (
-                            <li key={idx}>{item}</li>
-                          )
-                        )}
-                      </ul>
-                    </Card.Body>
-                  </Card>
-                </Col>
-
-                <Col md={6}>
-                  <Card className="h-100 border-primary-subtle foda-card">
-                    <Card.Body>
-                      <h6 className="text-primary fw-bold mb-2">
-                        Oportunidades
-                      </h6>
-                      <ul className="small mb-0 ps-3">
-                        {(fodaData.foda?.oportunidades || []).map(
-                          (item, idx) => (
-                            <li key={idx}>{item}</li>
-                          )
-                        )}
-                      </ul>
-                    </Card.Body>
-                  </Card>
-                </Col>
-
-                <Col md={6}>
-                  <Card className="h-100 border-warning-subtle foda-card">
-                    <Card.Body>
-                      <h6 className="text-warning fw-bold mb-2">
-                        Debilidades
-                      </h6>
-                      <ul className="small mb-0 ps-3">
-                        {(fodaData.foda?.debilidades || []).map(
-                          (item, idx) => (
-                            <li key={idx}>{item}</li>
-                          )
-                        )}
-                      </ul>
-                    </Card.Body>
-                  </Card>
-                </Col>
-
-                <Col md={6}>
-                  <Card className="h-100 border-danger-subtle foda-card">
-                    <Card.Body>
-                      <h6 className="text-danger fw-bold mb-2">
-                        Amenazas
-                      </h6>
-                      <ul className="small mb-0 ps-3">
-                        {(fodaData.foda?.amenazas || []).map(
-                          (item, idx) => (
-                            <li key={idx}>{item}</li>
-                          )
-                        )}
-                      </ul>
-                    </Card.Body>
-                  </Card>
-                </Col>
-              </Row>
-            </>
-          )}
-        </Modal.Body>
-
-        <Modal.Footer className="foda-modal-footer">
-          <small className="text-muted me-auto">
-            Este análisis es orientativo y se basa en información pública
-            disponible. No reemplaza estudios de opinión formales.
-          </small>
-          <Button variant="light" onClick={() => setShowModalFoda(false)}>
-            Cerrar
-          </Button>
-        </Modal.Footer>
-      </Modal>
+     
     </div>
   );
 };
