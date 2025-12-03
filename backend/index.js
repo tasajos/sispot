@@ -6,6 +6,7 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 const { llamarModeloIA, ARQUETIPOS } = require('./helpers/ia');
+const { generarFodaCandidato } = require('./helpers/iaFoda');
 
 
 app.use(cors());
@@ -616,6 +617,77 @@ app.post("/api/candidatos/sugerir-habilidades", async (req, res) => {
       .status(500)
       .json({ ok: false, message: "Error al generar sugerencia con IA" });
   }
+});
+
+
+// --- FODA IA por candidato ---
+app.get('/api/candidatos/:id/foda', async (req, res) => {
+  const { id } = req.params;
+
+  db.query(
+    "SELECT id, nombre, sigla FROM candidatos WHERE id = ?",
+    [id],
+    async (err, rows) => {
+      if (err) return res.status(500).send(err);
+      if (!rows.length)
+        return res.status(404).json({ message: "Candidato no encontrado" });
+
+      const candidato = rows[0];
+
+      try {
+        const analisis = await generarFodaCandidato(
+          candidato.nombre,
+          candidato.sigla
+        );
+
+        res.json({
+          candidato,
+          ...analisis,
+        });
+      } catch (e) {
+        console.error("❌ Error generando FODA candidato:", e);
+        res
+          .status(500)
+          .json({ message: "Error al generar análisis FODA con IA" });
+      }
+    }
+  );
+});
+
+
+// 🔍 FODA IA POR CANDIDATO
+app.get('/api/candidatos/:id/foda', (req, res) => {
+  const { id } = req.params;
+
+  db.query(
+    'SELECT id, nombre, sigla FROM candidatos WHERE id = ?',
+    [id],
+    async (err, rows) => {
+      if (err) return res.status(500).send(err);
+      if (!rows.length) {
+        return res.status(404).json({ message: 'Candidato no encontrado' });
+      }
+
+      const candidato = rows[0];
+
+      try {
+        const analisis = await generarFodaCandidato(
+          candidato.nombre,
+          candidato.sigla
+        );
+
+        res.json({
+          candidato,
+          ...analisis,
+        });
+      } catch (e) {
+        console.error('❌ Error generando FODA candidato:', e);
+        res
+          .status(500)
+          .json({ message: 'Error al generar análisis FODA con IA' });
+      }
+    }
+  );
 });
 
 app.listen(PORT, () => console.log(`🚀 Server en http://localhost:${PORT}`));
