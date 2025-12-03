@@ -684,15 +684,39 @@ app.get('/api/candidatos/:id/foda', (req, res) => {
   );
 });
 
-// 🔍 ANÁLISIS IA POR DISTRITOS
-app.get("/api/analisis-distritos", async (req, res) => {
-  try {
-    const data = await analizarTodosLosDistritos();
-    res.json(data);
-  } catch (err) {
-    console.error("❌ Error en /api/analisis-distritos:", err);
-    res.status(500).json({ error: "Error generando análisis de distritos" });
-  }
+// 🔍 Análisis de distritos con IA usando SOLO los 15 "Distrito X"
+app.get("/api/analisis-distritos", (req, res) => {
+  const sql = `
+    SELECT 
+      MIN(d.id) AS id,                           -- id representativo
+      d.nombre       AS nombre_distrito,
+      d.subalcaldia_id,
+      s.nombre       AS nombre_subalcaldia
+    FROM distritos d
+    LEFT JOIN subalcaldias s ON d.subalcaldia_id = s.id
+    -- Solo filas cuyo nombre sea "Distrito X"
+    WHERE d.nombre LIKE 'Distrito %'
+    GROUP BY d.nombre, d.subalcaldia_id, s.nombre
+    -- Ordenar por el número que está en el nombre: "Distrito 1", "Distrito 2", ...
+    ORDER BY CAST(SUBSTRING(d.nombre, 10) AS UNSIGNED)
+  `;
+
+  db.query(sql, async (err, rows) => {
+    if (err) {
+      console.error("❌ Error leyendo distritos:", err);
+      return res.status(500).send(err);
+    }
+
+    try {
+      const data = await analizarTodosLosDistritos(rows); // 👈 le pasamos la lista
+      res.json(data);
+    } catch (e) {
+      console.error("❌ Error en /api/analisis-distritos:", e);
+      res
+        .status(500)
+        .json({ error: "Error generando análisis de distritos" });
+    }
+  });
 });
 
 app.listen(PORT, () => console.log(`🚀 Server en http://localhost:${PORT}`));
