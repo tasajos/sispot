@@ -7,7 +7,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const { llamarModeloIA, ARQUETIPOS } = require('./helpers/ia');
 const { generarFodaCandidato } = require('./helpers/iaFoda');
-
+const { analizarTodosLosDistritos } = require("./helpers/iaDistritos");
 
 app.use(cors());
 app.use(express.json());
@@ -682,6 +682,17 @@ app.get('/api/candidatos/:id/foda', (req, res) => {
       }
     }
   );
+});
+
+// 🔍 ANÁLISIS IA POR DISTRITOS
+app.get("/api/analisis-distritos", async (req, res) => {
+  try {
+    const data = await analizarTodosLosDistritos();
+    res.json(data);
+  } catch (err) {
+    console.error("❌ Error en /api/analisis-distritos:", err);
+    res.status(500).json({ error: "Error generando análisis de distritos" });
+  }
 });
 
 app.listen(PORT, () => console.log(`🚀 Server en http://localhost:${PORT}`));
