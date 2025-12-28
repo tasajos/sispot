@@ -99,7 +99,61 @@ const sugerirConIA = async () => {
   }
 };
 
- 
+//Modal 
+const [guardando, setGuardando] = useState(false);
+const [showModalExito, setShowModalExito] = useState(false);
+const [textoModalExito, setTextoModalExito] = useState('Registro exitoso ✅');
+
+
+const eliminarCandidato = async (id) => {
+  const confirmar = window.confirm('¿Seguro que deseas eliminar este candidato?');
+  if (!confirmar) return;
+
+  try {
+    const res = await fetch(`${API_URL}/api/candidatos/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Error al eliminar');
+
+    setMensaje({ tipo: 'success', texto: 'Candidato eliminado correctamente' });
+    setLista(prev => prev.filter(c => c.id !== id));
+  } catch (err) {
+    console.error(err);
+    setMensaje({ tipo: 'danger', texto: 'No se pudo eliminar el candidato' });
+  }
+};
+
+
+const simularEscenario = async () => {
+  setMensaje(null);
+  try {
+    const res = await fetch(`${API_URL}/api/candidatos/simular-decision`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ escenario })
+    });
+
+    if (!res.ok) throw new Error('Error al simular');
+    const data = await res.json();
+    setResultadosEscenario(data);
+  } catch (err) {
+    console.error(err);
+    setMensaje({ tipo: 'danger', texto: 'No se pudo realizar la simulación' });
+  }
+};
+
+const simularMejor = async () => {
+  setMensaje(null);
+  try {
+    const res = await fetch(`${API_URL}/api/candidatos/simular-mejor`);
+    if (!res.ok) throw new Error('Error al generar ranking');
+
+    const data = await res.json();
+    setRankingMejor(data);
+  } catch (err) {
+    console.error(err);
+    setMensaje({ tipo: 'danger', texto: 'No se pudo generar el ranking' });
+  }
+};
+
 
   // Form registro
  const [form, setForm] = useState({
@@ -175,91 +229,55 @@ const calcularTotal = (f) =>
     return;
   }
 
+  setGuardando(true);
+
   try {
     const res = await fetch(`${API_URL}/api/candidatos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...form,
-         habilidad_crisis: Number(form.habilidad_crisis),
-  habilidad_dialogo: Number(form.habilidad_dialogo),
-  habilidad_tecnica: Number(form.habilidad_tecnica),
-  habilidad_comunicacion: Number(form.habilidad_comunicacion),
-  habilidad_influencia: Number(form.habilidad_influencia),
-  habilidad_reputacion: Number(form.habilidad_reputacion),
-  habilidad_leyes: Number(form.habilidad_leyes)
-
+        habilidad_crisis: Number(form.habilidad_crisis),
+        habilidad_dialogo: Number(form.habilidad_dialogo),
+        habilidad_tecnica: Number(form.habilidad_tecnica),
+        habilidad_comunicacion: Number(form.habilidad_comunicacion),
+        habilidad_influencia: Number(form.habilidad_influencia),
+        habilidad_reputacion: Number(form.habilidad_reputacion),
+        habilidad_leyes: Number(form.habilidad_leyes)
       })
     });
 
-      if (!res.ok) throw new Error('Error al registrar');
-      setMensaje({ tipo: 'success', texto: 'Candidato registrado correctamente' });
-      setForm({
-  nombre: '',
-  sigla: '',
-  habilidad_crisis: 0,
-  habilidad_dialogo: 0,
-  habilidad_tecnica: 0,
-  habilidad_comunicacion: 0,
-  habilidad_influencia: 0,
-  habilidad_reputacion: 0,
-  habilidad_leyes: 0,
-  habilidades_texto: ''
-});
-    } catch (err) {
-      console.error(err);
-      setMensaje({ tipo: 'danger', texto: 'No se pudo registrar el candidato' });
-    }
-  };
+    if (!res.ok) throw new Error('Error al registrar');
 
-  const simularEscenario = async () => {
-    setMensaje(null);
-    try {
-      const res = await fetch(`${API_URL}/api/candidatos/simular-decision`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ escenario })
-      });
-      const data = await res.json();
-      setResultadosEscenario(data);
-    } catch (err) {
-      console.error(err);
-      setMensaje({ tipo: 'danger', texto: 'No se pudo realizar la simulación' });
-    }
-  };
+    // ✅ Modal de éxito
+    console.log('✅ OK: abriendo modal de éxito');
+    setTextoModalExito('Registro exitoso ✅ El candidato fue guardado correctamente.');
+    setShowModalExito(true);
 
-  const simularMejor = async () => {
-    setMensaje(null);
-    try {
-      const res = await fetch(`${API_URL}/api/candidatos/simular-mejor`);
-      const data = await res.json();
-      setRankingMejor(data);
-    } catch (err) {
-      console.error(err);
-      setMensaje({ tipo: 'danger', texto: 'No se pudo generar el ranking' });
-    }
-  };
+    // (Opcional) también puedes dejar tu alert si quieres
+    // setMensaje({ tipo: 'success', texto: 'Candidato registrado correctamente' });
 
-  const eliminarCandidato = async (id) => {
-    const confirmar = window.confirm('¿Seguro que deseas eliminar este candidato?');
-    if (!confirmar) return;
+    // Limpiar form
+    setForm({
+      nombre: '',
+      sigla: '',
+      habilidad_crisis: 0,
+      habilidad_dialogo: 0,
+      habilidad_tecnica: 0,
+      habilidad_comunicacion: 0,
+      habilidad_influencia: 0,
+      habilidad_reputacion: 0,
+      habilidad_leyes: 0,
+      habilidades_texto: ''
+    });
 
-    try {
-      const res = await fetch(`${API_URL}/api/candidatos/${id}`, {
-        method: 'DELETE'
-      });
-
-      if (!res.ok) throw new Error('Error al eliminar');
-
-      setMensaje({ tipo: 'success', texto: 'Candidato eliminado correctamente' });
-      
-      // Actualizar la lista en memoria sin recargar todo
-      setLista(prev => prev.filter(c => c.id !== id));
-    } catch (err) {
-      console.error(err);
-      setMensaje({ tipo: 'danger', texto: 'No se pudo eliminar el candidato' });
-    }
-  };
+  } catch (err) {
+    console.error(err);
+    setMensaje({ tipo: 'danger', texto: 'No se pudo registrar el candidato' });
+  } finally {
+    setGuardando(false);
+  }
+};
 
   return (
     <div className="container-fluid">
@@ -272,8 +290,6 @@ const calcularTotal = (f) =>
   keyboard={false}
   centered
 >
-
-    
       
   <Modal.Header>
     <Modal.Title>Cargando datos del candidato...</Modal.Title>
@@ -286,6 +302,26 @@ const calcularTotal = (f) =>
       Por favor espera unos segundos.
     </div>
   </Modal.Body>
+</Modal>
+
+
+{/* Modal de Registro Exitoso Candidato */}
+  <Modal
+  show={showModalExito}
+  onHide={() => setShowModalExito(false)}
+  centered
+>
+  <Modal.Header closeButton>
+    <Modal.Title>✅ Registro exitoso</Modal.Title>
+  </Modal.Header>
+  <Modal.Body>
+    {textoModalExito}
+  </Modal.Body>
+  <Modal.Footer>
+    <Button variant="success" onClick={() => setShowModalExito(false)}>
+      Entendido
+    </Button>
+  </Modal.Footer>
 </Modal>
 
       {/* Tabs internas */}
@@ -555,9 +591,16 @@ const calcularTotal = (f) =>
           </Card>
         )}
 
-        <Button type="submit" variant="primary">
-          Guardar candidato
-        </Button>
+        <Button type="submit" variant="primary" disabled={guardando}>
+  {guardando ? (
+    <>
+      <Spinner size="sm" animation="border" className="me-2" />
+      Guardando...
+    </>
+  ) : (
+    'Guardar candidato'
+  )}
+</Button>
       </Form>
     </Card.Body>
   </Card>
