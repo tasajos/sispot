@@ -134,6 +134,146 @@ setTabKey("foda");
     }
   };
 
+const exportarComparacionPdf = () => {
+  if (!compareData?.tabla?.base) {
+    alert("Primero genera la comparación para exportar.");
+    return;
+  }
+
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  let y = 10;
+
+  const base = compareData.tabla.base;
+  const comps = compareData.tabla.competidores || [];
+  const cols = [base, ...comps];
+
+  // Helpers
+  const title = (t) => {
+    doc.setFontSize(14);
+    doc.setFont(undefined, "bold");
+    doc.text(t, 10, y);
+    y += 8;
+  };
+
+  const subtitle = (t) => {
+    doc.setFontSize(10);
+    doc.setFont(undefined, "normal");
+    const lines = doc.splitTextToSize(t, 280);
+    doc.text(lines, 10, y);
+    y += lines.length * 5 + 2;
+  };
+
+  const section = (t) => {
+    if (y > 185) { doc.addPage(); y = 10; }
+    doc.setFontSize(11);
+    doc.setFont(undefined, "bold");
+    doc.text(t, 10, y);
+    y += 6;
+    doc.setFont(undefined, "normal");
+  };
+
+  const bulletList = (items, maxWidth = 280) => {
+    (items || []).forEach((it) => {
+      const lines = doc.splitTextToSize(`• ${it}`, maxWidth);
+      if (y + lines.length * 5 > 200) { doc.addPage(); y = 10; }
+      doc.text(lines, 10, y);
+      y += lines.length * 5;
+    });
+    y += 2;
+  };
+
+  // Header
+  title(`Comparación FODA – ${base.candidato?.nombre || "Candidato"}`);
+  subtitle("Basado en IA + fuentes públicas (no es encuesta oficial).");
+
+  // ===================== Tabla comparativa “manual” =====================
+  section("Tabla FODA comparativa");
+
+  // Config tabla
+  const startX = 10;
+  const startY = y;
+  const pageW = 297; // A4 landscape width in mm
+  const margin = 10;
+  const usableW = pageW - margin * 2;
+
+  const col0W = 35; // columna “Cuadrante”
+  const otherW = (usableW - col0W) / cols.length;
+
+  const rowH = 6;
+
+  // Dibujar header row
+  const drawCell = (x, y, w, h, text, bold=false) => {
+    doc.rect(x, y, w, h);
+    doc.setFont(undefined, bold ? "bold" : "normal");
+    const lines = doc.splitTextToSize(text || "", w - 2);
+    doc.text(lines, x + 1.5, y + 4);
+  };
+
+  // Header
+  drawCell(startX, startY, col0W, rowH, "Cuadrante", true);
+  cols.forEach((c, i) => {
+    const label = `${c.candidato?.nombre || ""}\n(${c.candidato?.sigla || "N/A"})`;
+    drawCell(startX + col0W + i * otherW, startY, otherW, rowH, label, true);
+  });
+
+  y = startY + rowH;
+
+  // Filas FODA: en PDF no es fácil hacer alturas dinámicas perfecto sin autotable,
+  // así que limitamos a 3 bullets por celda para mantener orden.
+  const cuadrantes = [
+    ["Fortalezas", "fortalezas"],
+    ["Oportunidades", "oportunidades"],
+    ["Debilidades", "debilidades"],
+    ["Amenazas", "amenazas"],
+  ];
+
+  cuadrantes.forEach(([label, key]) => {
+    if (y > 185) { doc.addPage(); y = 10; }
+
+    drawCell(startX, y, col0W, rowH * 3, label, true);
+
+    cols.forEach((c, i) => {
+      const items = (c[key] || []).slice(0, 3).map((t) => `• ${t}`).join("\n");
+      drawCell(startX + col0W + i * otherW, y, otherW, rowH * 3, items);
+    });
+
+    y += rowH * 3;
+  });
+
+  y += 6;
+
+  // ===================== Brechas =====================
+  section("Brechas (resumen)");
+  bulletList(compareData.brechas?.ventajas_base?.slice(0, 6), 280);
+  bulletList(compareData.brechas?.desventajas_base?.slice(0, 6), 280);
+  bulletList(compareData.brechas?.oportunidades_no_aprovechadas?.slice(0, 6), 280);
+
+  // ===================== Mejoras =====================
+  section("Cómo mejorar (acciones sugeridas)");
+  const prioridades = compareData.mejoras?.prioridades || [];
+  const priLines = prioridades.slice(0, 10).map((p) => {
+    const pri = (p.prioridad || "").toUpperCase();
+    return `[${pri}] ${p.accion}${p.impacto_esperado ? " — " + p.impacto_esperado : ""}`;
+  });
+  bulletList(priLines, 280);
+
+  section("Mensajes clave");
+  bulletList(compareData.mejoras?.mensajes_clave?.slice(0, 10), 280);
+
+  section("Plan 30 / 60 / 90");
+  const plan = compareData.mejoras?.plan_30_60_90 || {};
+  bulletList(["30 días:", ...(plan.dias_30 || []).slice(0, 6)], 280);
+  bulletList(["60 días:", ...(plan.dias_60 || []).slice(0, 6)], 280);
+  bulletList(["90 días:", ...(plan.dias_90 || []).slice(0, 6)], 280);
+
+  const nombreFile = (base.candidato?.nombre || "candidato")
+    .replace(/\s+/g, "_")
+    .toLowerCase();
+
+  doc.save(`comparacion_foda_${nombreFile}.pdf`);
+};
+
+
   const getColorAceptacion = (nivel) => {
     switch (nivel) {
       case 'alta':
@@ -146,6 +286,11 @@ setTabKey("foda");
         return 'secondary';
     }
   };
+
+  const exportarPdf = () => {
+  if (tabKey === "comparacion") exportarComparacionPdf();
+  else exportarFodaPdf();
+}
 
   const compararFoda = async () => {
   if (!baseId || compareIds.length === 0) return;
@@ -303,15 +448,15 @@ setTabKey("foda");
 
     {/* Botón PDF solo cuando ya hay datos y no está cargando */}
     {!loadingFoda && fodaData && (
-      <Button
-        variant="outline-secondary"
-        size="sm"
-        className="ms-3 d-flex align-items-center gap-1 rounded-pill"
-        onClick={exportarFodaPdf}
-      >
-        <Download size={16} />
-        <span>PDF</span>
-      </Button>
+     <Button
+  variant="outline-secondary"
+  size="sm"
+  className="ms-3 d-flex align-items-center gap-1 rounded-pill"
+  onClick={() => exportarPdf()}
+>
+  <Download size={16} />
+  <span>PDF</span>
+</Button>
     )}
   </div>
 </Modal.Header>
