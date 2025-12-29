@@ -19,6 +19,9 @@ function Candidatos() {
   const [contextoWeb, setContextoWeb] = useState(null);
   const [historiaIA, setHistoriaIA] = useState('');
 const [webResultados, setWebResultados] = useState([]);
+  const [confianzaIA, setConfianzaIA] = useState(null);
+  const [justificacionIA, setJustificacionIA] = useState({});
+
 
   const [webInfo, setWebInfo] = useState('');
   const [cargandoIA, setCargandoIA] = useState(false);
@@ -31,6 +34,9 @@ const sugerirConIA = async () => {
   setContextoWeb('');
   setWebResultados([]);
   setWebInfo('');
+  setConfianzaIA(null);
+setJustificacionIA({});
+setArquetipoIA(null);
 
   if (!form.nombre || !form.nombre.trim()) {
     setMensaje({
@@ -83,6 +89,9 @@ const sugerirConIA = async () => {
       data.fuente === 'openai'
         ? 'IA (ChatGPT)'
         : 'modelo local (fallback)';
+
+    setConfianzaIA(data.confianza ?? null);
+    setJustificacionIA(data.justificacion ?? {});
 
     setMensaje({
       tipo: 'info',
@@ -387,7 +396,7 @@ const calcularTotal = (f) =>
         onClick={sugerirConIA}
         disabled={!form.nombre}
       >
-        Sugerir puntos con IA 
+        Sugerir puntos
       </Button>
     </div>
   </div>
@@ -412,7 +421,16 @@ const calcularTotal = (f) =>
     <Badge bg="secondary">
       Arquetipo IA: {arquetipoIA.nombre}
     </Badge>
+
+    
      )}
+
+     {typeof confianzaIA === "number" && (
+  <Badge bg={confianzaIA >= 0.75 ? "success" : confianzaIA >= 0.45 ? "warning" : "secondary"}>
+    Confianza IA: {Math.round(confianzaIA * 100)}%
+  </Badge>
+)}
+
 </div>
 
 <div className="row">
@@ -567,6 +585,25 @@ const calcularTotal = (f) =>
     </Card.Body>
   </Card>
 )}
+
+
+{justificacionIA && Object.keys(justificacionIA).length > 0 && (
+  <Card className="mb-3">
+    <Card.Header>¿Por qué esos puntos?</Card.Header>
+    <Card.Body>
+      <ul className="mb-0">
+        <li><strong>Crisis:</strong> {justificacionIA.habilidad_crisis}</li>
+        <li><strong>Diálogo:</strong> {justificacionIA.habilidad_dialogo}</li>
+        <li><strong>Técnica:</strong> {justificacionIA.habilidad_tecnica}</li>
+        <li><strong>Comunicación:</strong> {justificacionIA.habilidad_comunicacion}</li>
+        <li><strong>Influencia:</strong> {justificacionIA.habilidad_influencia}</li>
+        <li><strong>Reputación:</strong> {justificacionIA.habilidad_reputacion}</li>
+        <li><strong>Leyes:</strong> {justificacionIA.habilidad_leyes}</li>
+      </ul>
+    </Card.Body>
+  </Card>
+)}
+
 
 
         {/* HISTORIA DEL CANDIDATO (IA) */}

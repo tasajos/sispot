@@ -465,27 +465,53 @@ app.get('/api/candidatos/simular-mejor', (req, res) => {
 
   db.query(sql, (err, candidatos) => {
     if (err) return res.status(500).send(err);
-    if (candidatos.length === 0) return res.json({ resultados: [] });
+    if (!candidatos || candidatos.length === 0) {
+      return res.json({ titulo: "Ranking integral de candidatos para la Alcaldía de Cochabamba", resultados: [] });
+    }
+
+    // Pesos (ajustables)
+    const PESOS = {
+      habilidad_crisis: 1.2,
+      habilidad_dialogo: 1.1,
+      habilidad_tecnica: 1.4,
+      habilidad_comunicacion: 1.3,
+      habilidad_influencia: 1.2,
+      habilidad_reputacion: 1.1,
+      habilidad_leyes: 0.7,
+    };
+
+    const sumaPesos = Object.values(PESOS).reduce((a, b) => a + b, 0);
 
     const resultados = candidatos
       .map(c => {
-        const promedio = (
-          c.habilidad_crisis +
-          c.habilidad_dialogo +
-          c.habilidad_tecnica +
-          c.habilidad_comunicacion +
-          c.habilidad_influencia +
-          c.habilidad_reputacion +
-          c.habilidad_leyes
-        ) / 7;
+        const crisis = Number(c.habilidad_crisis) || 0;
+        const dialogo = Number(c.habilidad_dialogo) || 0;
+        const tecnica = Number(c.habilidad_tecnica) || 0;
+        const comunicacion = Number(c.habilidad_comunicacion) || 0;
+        const influencia = Number(c.habilidad_influencia) || 0;
+        const reputacion = Number(c.habilidad_reputacion) || 0;
+        const leyes = Number(c.habilidad_leyes) || 0;
 
-        return { ...c, score: Number(promedio.toFixed(2)) };
+        const scoreRaw =
+          crisis * PESOS.habilidad_crisis +
+          dialogo * PESOS.habilidad_dialogo +
+          tecnica * PESOS.habilidad_tecnica +
+          comunicacion * PESOS.habilidad_comunicacion +
+          influencia * PESOS.habilidad_influencia +
+          reputacion * PESOS.habilidad_reputacion +
+          leyes * PESOS.habilidad_leyes;
+
+        // Normalizado (para que sea comparable)
+        const score = scoreRaw / sumaPesos;
+
+        return { ...c, score: Number(score.toFixed(2)) };
       })
       .sort((a, b) => b.score - a.score);
 
     res.json({
       titulo: "Ranking integral de candidatos para la Alcaldía de Cochabamba",
-      resultados
+      resultados,
+      pesos: PESOS // opcional, útil para debug/transparencia
     });
   });
 });
@@ -595,6 +621,8 @@ app.post("/api/candidatos/sugerir-habilidades", async (req, res) => {
       arquetipo_id,
       webResumen,
       webResultados,
+      confianza,
+      justificacion,
       contextoWeb,
     } = await llamarModeloIA(nombre, sigla);
 
@@ -609,6 +637,8 @@ app.post("/api/candidatos/sugerir-habilidades", async (req, res) => {
       historia,      // 👈 biografía limpia
       contextoWeb,   // resumen de Google
       webResumen,
+      confianza,
+      justificacion,
       webResultados,
     });
   } catch (err) {
