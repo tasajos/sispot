@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Card, Row, Col, Badge, ProgressBar, Modal, Button, Spinner , Tabs, Tab, Form, Table} from 'react-bootstrap';
 import { User, ShieldAlert, TrendingDown, Target, Brain, Activity,Download,GitCompareArrows} from 'lucide-react';
+import autoTable from "jspdf-autotable";
+
 
 
 import jsPDF from 'jspdf';
@@ -189,58 +191,23 @@ const exportarComparacionPdf = () => {
   // ===================== Tabla comparativa “manual” =====================
   section("Tabla FODA comparativa");
 
-  // Config tabla
-  const startX = 10;
-  const startY = y;
-  const pageW = 297; // A4 landscape width in mm
-  const margin = 10;
-  const usableW = pageW - margin * 2;
-
-  const col0W = 35; // columna “Cuadrante”
-  const otherW = (usableW - col0W) / cols.length;
-
-  const rowH = 6;
-
-  // Dibujar header row
-  const drawCell = (x, y, w, h, text, bold=false) => {
-    doc.rect(x, y, w, h);
-    doc.setFont(undefined, bold ? "bold" : "normal");
-    const lines = doc.splitTextToSize(text || "", w - 2);
-    doc.text(lines, x + 1.5, y + 4);
-  };
-
-  // Header
-  drawCell(startX, startY, col0W, rowH, "Cuadrante", true);
-  cols.forEach((c, i) => {
-    const label = `${c.candidato?.nombre || ""}\n(${c.candidato?.sigla || "N/A"})`;
-    drawCell(startX + col0W + i * otherW, startY, otherW, rowH, label, true);
-  });
-
-  y = startY + rowH;
-
-  // Filas FODA: en PDF no es fácil hacer alturas dinámicas perfecto sin autotable,
-  // así que limitamos a 3 bullets por celda para mantener orden.
-  const cuadrantes = [
-    ["Fortalezas", "fortalezas"],
-    ["Oportunidades", "oportunidades"],
-    ["Debilidades", "debilidades"],
-    ["Amenazas", "amenazas"],
-  ];
-
-  cuadrantes.forEach(([label, key]) => {
-    if (y > 185) { doc.addPage(); y = 10; }
-
-    drawCell(startX, y, col0W, rowH * 3, label, true);
-
-    cols.forEach((c, i) => {
-      const items = (c[key] || []).slice(0, 3).map((t) => `• ${t}`).join("\n");
-      drawCell(startX + col0W + i * otherW, y, otherW, rowH * 3, items);
-    });
-
-    y += rowH * 3;
-  });
-
-  y += 6;
+  autoTable(doc, {
+  startY: y,
+  head: [[
+    "Cuadrante",
+    ...cols.map(c => `${c.candidato?.nombre}\n(${c.candidato?.sigla || "N/A"})`)
+  ]],
+  body: [
+    ["Fortalezas", ...cols.map(c => (c.fortalezas || []).slice(0,6).join("\n"))],
+    ["Oportunidades", ...cols.map(c => (c.oportunidades || []).slice(0,6).join("\n"))],
+    ["Debilidades", ...cols.map(c => (c.debilidades || []).slice(0,6).join("\n"))],
+    ["Amenazas", ...cols.map(c => (c.amenazas || []).slice(0,6).join("\n"))],
+  ],
+  styles: { fontSize: 8, cellPadding: 2, valign: "top" },
+  headStyles: { fontStyle: "bold" },
+  columnStyles: { 0: { cellWidth: 30 } },
+});
+y = doc.lastAutoTable.finalY + 8;
 
   // ===================== Brechas =====================
   section("Brechas (resumen)");
