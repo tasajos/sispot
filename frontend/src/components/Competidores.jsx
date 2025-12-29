@@ -1,8 +1,10 @@
 // frontend/src/components/Competidores.jsx
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Card, Row, Col, Badge, ProgressBar, Modal, Button, Spinner } from 'react-bootstrap';
-import { User, ShieldAlert, TrendingDown, Target, Brain, Activity,Download} from 'lucide-react';
+import { Card, Row, Col, Badge, ProgressBar, Modal, Button, Spinner , Tabs, Tab, Form, Table} from 'react-bootstrap';
+import { User, ShieldAlert, TrendingDown, Target, Brain, Activity,Download,GitCompareArrows} from 'lucide-react';
+
+
 import jsPDF from 'jspdf';
 import './styles/competidores.css';
 
@@ -12,6 +14,13 @@ const Competidores = () => {
   const [candidatoSeleccionado, setCandidatoSeleccionado] = useState(null);
   const [fodaData, setFodaData] = useState(null);
   const [loadingFoda, setLoadingFoda] = useState(false);
+  const [tabKey, setTabKey] = useState("foda");
+
+  const [baseId, setBaseId] = useState(null);
+  const [compareIds, setCompareIds] = useState([]);
+  const [loadingCompare, setLoadingCompare] = useState(false);
+  const [compareData, setCompareData] = useState(null);
+
 
 
   useEffect(() => {
@@ -107,6 +116,10 @@ const Competidores = () => {
     setShowModalFoda(true);
     setLoadingFoda(true);
     setFodaData(null);
+    setBaseId(cand.id);
+setCompareIds(candidatos.filter(x => x.id !== cand.id).slice(0, 2).map(x => x.id)); // 2 por defecto
+setCompareData(null);
+setTabKey("foda");
 
     try {
       const res = await axios.get(
@@ -133,6 +146,27 @@ const Competidores = () => {
         return 'secondary';
     }
   };
+
+  const compararFoda = async () => {
+  if (!baseId || compareIds.length === 0) return;
+
+  setLoadingCompare(true);
+  setCompareData(null);
+
+  try {
+    const res = await axios.post("http://localhost:3310/api/candidatos/foda-comparar", {
+      baseId,
+      compareIds,
+    });
+    setCompareData(res.data);
+  } catch (e) {
+    console.error(e);
+    alert("No se pudo generar la comparación FODA");
+  } finally {
+    setLoadingCompare(false);
+  }
+};
+
 
   return (
     <div className="d-flex flex-column h-100 w-100">
@@ -283,19 +317,19 @@ const Competidores = () => {
 </Modal.Header>
 
   <Modal.Body className="foda-modal-body">
-    {loadingFoda && (
-      <div className="text-center py-5">
-        <Spinner animation="border" size="sm" />{' '}
-        <small className="text-muted">
-          Generando análisis FODA con IA...
-        </small>
-      </div>
-    )}
+  {loadingFoda && (
+    <div className="text-center py-5">
+      <Spinner animation="border" size="sm" />{" "}
+      <small className="text-muted">Generando análisis FODA con IA...</small>
+    </div>
+  )}
 
-    {/* 👉 TODO el contenido solo se renderiza si fodaData no es null */}
-    {!loadingFoda && fodaData && (
-      <>
-        {/* Aceptación general */}
+  {!loadingFoda && fodaData && (
+    <Tabs activeKey={tabKey} onSelect={(k) => setTabKey(k)} className="mb-3">
+      <Tab eventKey="foda" title="FODA">
+        {/* 🔽 AQUÍ VA TU CONTENIDO ACTUAL DEL FODA (aceptación, tendencias, cuadrantes, fuentes) */}
+        {/* (Pega exactamente tu UI actual dentro de este Tab) */}
+      {/* Aceptación general */}
         <div className="mb-4">
           <div className="d-flex justify-content-between align-items-center mb-2">
             <span className="small text-muted fw-semibold text-uppercase">
@@ -305,14 +339,16 @@ const Competidores = () => {
               bg={getColorAceptacion(fodaData.aceptacion?.nivel)}
               className="rounded-pill"
             >
-              {fodaData.aceptacion?.nivel?.toUpperCase() || 'DESCONOCIDA'}
+              {fodaData.aceptacion?.nivel?.toUpperCase() || "DESCONOCIDA"}
             </Badge>
           </div>
+
           <ProgressBar
             now={fodaData.aceptacion?.porcentaje_estimado || 0}
             variant={getColorAceptacion(fodaData.aceptacion?.nivel)}
-            style={{ height: '7px' }}
+            style={{ height: "7px" }}
           />
+
           <small className="text-muted d-block mt-1">
             {fodaData.aceptacion?.explicacion}
           </small>
@@ -386,7 +422,7 @@ const Competidores = () => {
           </Col>
         </Row>
 
-        {/* Fuentes principales consultadas – SOLO UNA VEZ, alineadas */}
+        {/* Fuentes */}
         {Array.isArray(fodaData.fuentesPrincipales) &&
           fodaData.fuentesPrincipales.length > 0 && (
             <div className="bg-white border rounded-3 p-3 mt-4">
@@ -401,12 +437,12 @@ const Competidores = () => {
                   {fodaData.fuentesPrincipales.map((f, idx) => (
                     <li key={idx} className="mb-1">
                       <span className="fw-semibold">
-                        [{f.tipo === 'facebook'
-                          ? 'Facebook'
-                          : f.tipo === 'medio'
-                          ? 'Medio'
-                          : 'Web'}]
-                      </span>{' '}
+                        [{f.tipo === "facebook"
+                          ? "Facebook"
+                          : f.tipo === "medio"
+                          ? "Medio"
+                          : "Web"}]
+                      </span>{" "}
                       <a
                         href={f.url}
                         target="_blank"
@@ -414,7 +450,7 @@ const Competidores = () => {
                         className="text-decoration-none"
                       >
                         {f.titulo}
-                      </a>{' '}
+                      </a>{" "}
                       <span className="text-muted">({f.fuente})</span>
                     </li>
                   ))}
@@ -422,9 +458,222 @@ const Competidores = () => {
               </div>
             </div>
           )}
-      </>
-    )}
-  </Modal.Body>
+      </Tab>
+
+      <Tab eventKey="comparacion" title="Comparación">
+        <div className="d-flex align-items-center gap-2 mb-3">
+          <GitCompareArrows size={18} />
+          <span className="fw-bold">Comparar y mejorar análisis FODA</span>
+        </div>
+
+        {/* Selectores */}
+        <Row className="g-3 mb-3">
+          <Col md={6}>
+            <Form.Label className="small text-muted fw-semibold">Candidato base</Form.Label>
+            <Form.Select
+              value={baseId || ""}
+              onChange={(e) => {
+                const newBase = Number(e.target.value);
+                setBaseId(newBase);
+                setCompareIds((prev) => prev.filter((id) => id !== newBase));
+                setCompareData(null);
+              }}
+            >
+              <option value="" disabled>Seleccione...</option>
+              {candidatos.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre} ({c.sigla || "N/A"})
+                </option>
+              ))}
+            </Form.Select>
+          </Col>
+
+          <Col md={6}>
+            <Form.Label className="small text-muted fw-semibold">Comparar contra</Form.Label>
+            <Form.Select
+              multiple
+              value={compareIds.map(String)}
+              onChange={(e) => {
+                const values = Array.from(e.target.selectedOptions).map((o) => Number(o.value));
+                // evita que el base se meta aquí
+                setCompareIds(values.filter((v) => v !== baseId));
+                setCompareData(null);
+              }}
+              style={{ height: 120 }}
+            >
+              {candidatos
+                .filter((c) => c.id !== baseId)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre} ({c.sigla || "N/A"})
+                  </option>
+                ))}
+            </Form.Select>
+            <small className="text-muted">Ctrl/Shift para seleccionar varios</small>
+          </Col>
+        </Row>
+
+        <div className="d-flex gap-2 mb-3">
+          <Button
+            variant="primary"
+            className="rounded-pill px-3"
+            onClick={compararFoda}
+            disabled={loadingCompare || !baseId || compareIds.length === 0}
+          >
+            {loadingCompare ? "Comparando..." : "Generar comparación"}
+          </Button>
+
+          <Button
+            variant="outline-secondary"
+            className="rounded-pill px-3"
+            onClick={() => setCompareData(null)}
+          >
+            Limpiar
+          </Button>
+        </div>
+
+        {loadingCompare && (
+          <div className="text-center py-4">
+            <Spinner animation="border" size="sm" />{" "}
+            <small className="text-muted">Generando comparación con IA...</small>
+          </div>
+        )}
+
+        {/* Tabla comparativa */}
+        {!loadingCompare && compareData?.tabla && (
+          <>
+            <div className="border rounded-3 p-3 bg-white mb-3">
+              <div className="fw-bold mb-2">Tabla FODA comparativa</div>
+
+              {(() => {
+                const base = compareData.tabla.base;
+                const comps = compareData.tabla.competidores || [];
+                const cols = [base, ...comps];
+
+                const renderList = (arr) => (
+                  <ul className="mb-0 ps-3 small">
+                    {(arr || []).slice(0, 6).map((x, i) => <li key={i}>{x}</li>)}
+                  </ul>
+                );
+
+                return (
+                  <div className="table-responsive">
+                    <Table bordered hover className="align-middle small">
+                      <thead>
+                        <tr>
+                          <th style={{ width: 180 }}>Cuadrante</th>
+                          {cols.map((c, idx) => (
+                            <th key={idx}>
+                              {c.candidato?.nombre} <br />
+                              <span className="text-muted">({c.candidato?.sigla || "N/A"})</span>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td className="fw-bold text-success">Fortalezas</td>
+                          {cols.map((c, idx) => <td key={idx}>{renderList(c.fortalezas)}</td>)}
+                        </tr>
+                        <tr>
+                          <td className="fw-bold text-primary">Oportunidades</td>
+                          {cols.map((c, idx) => <td key={idx}>{renderList(c.oportunidades)}</td>)}
+                        </tr>
+                        <tr>
+                          <td className="fw-bold text-warning">Debilidades</td>
+                          {cols.map((c, idx) => <td key={idx}>{renderList(c.debilidades)}</td>)}
+                        </tr>
+                        <tr>
+                          <td className="fw-bold text-danger">Amenazas</td>
+                          {cols.map((c, idx) => <td key={idx}>{renderList(c.amenazas)}</td>)}
+                        </tr>
+                      </tbody>
+                    </Table>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Brechas */}
+            <Row className="g-3">
+              <Col md={6}>
+                <div className="border rounded-3 p-3 bg-light">
+                  <div className="fw-bold mb-2">Ventajas del base</div>
+                  <ul className="mb-0 ps-3 small">
+                    {(compareData.brechas?.ventajas_base || []).map((x, i) => <li key={i}>{x}</li>)}
+                  </ul>
+                </div>
+              </Col>
+
+              <Col md={6}>
+                <div className="border rounded-3 p-3 bg-light">
+                  <div className="fw-bold mb-2">Brechas / desventajas</div>
+                  <ul className="mb-0 ps-3 small">
+                    {(compareData.brechas?.desventajas_base || []).map((x, i) => <li key={i}>{x}</li>)}
+                  </ul>
+                </div>
+              </Col>
+            </Row>
+
+            {/* Mejoras */}
+            <div className="border rounded-3 p-3 bg-white mt-3">
+              <div className="fw-bold mb-2">Cómo podría mejorar</div>
+
+              <div className="mb-3">
+                <div className="text-muted small fw-semibold mb-1">Prioridades</div>
+                <ul className="mb-0 ps-3 small">
+                  {(compareData.mejoras?.prioridades || []).map((p, i) => (
+                    <li key={i}>
+                      <span className="fw-bold">[{p.prioridad}]</span> {p.accion}
+                      {p.razon ? <span className="text-muted"> — {p.razon}</span> : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="mb-3">
+                <div className="text-muted small fw-semibold mb-1">Mensajes clave</div>
+                <ul className="mb-0 ps-3 small">
+                  {(compareData.mejoras?.mensajes_clave || []).map((m, i) => <li key={i}>{m}</li>)}
+                </ul>
+              </div>
+
+              <div>
+                <div className="text-muted small fw-semibold mb-2">Plan 30 / 60 / 90</div>
+                <Row className="g-2">
+                  <Col md={4}>
+                    <div className="p-2 border rounded bg-light">
+                      <div className="fw-bold small">30 días</div>
+                      <ul className="mb-0 ps-3 small">
+                        {(compareData.mejoras?.plan_30_60_90?.dias_30 || []).map((x, i) => <li key={i}>{x}</li>)}
+                      </ul>
+                    </div>
+                  </Col>
+                  <Col md={4}>
+                    <div className="p-2 border rounded bg-light">
+                      <div className="fw-bold small">60 días</div>
+                      <ul className="mb-0 ps-3 small">
+                        {(compareData.mejoras?.plan_30_60_90?.dias_60 || []).map((x, i) => <li key={i}>{x}</li>)}
+                      </ul>
+                    </div>
+                  </Col>
+                  <Col md={4}>
+                    <div className="p-2 border rounded bg-light">
+                      <div className="fw-bold small">90 días</div>
+                      <ul className="mb-0 ps-3 small">
+                        {(compareData.mejoras?.plan_30_60_90?.dias_90 || []).map((x, i) => <li key={i}>{x}</li>)}
+                      </ul>
+                    </div>
+                  </Col>
+                </Row>
+              </div>
+            </div>
+          </>
+        )}
+      </Tab>
+    </Tabs>
+  )}
+</Modal.Body>
 
   <Modal.Footer className="foda-modal-footer">
     <small className="text-muted me-auto">

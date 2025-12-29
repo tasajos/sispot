@@ -8,6 +8,8 @@ const PORT = process.env.PORT || 3000;
 const { llamarModeloIA, ARQUETIPOS } = require('./helpers/ia');
 const { generarFodaCandidato } = require('./helpers/iaFoda');
 const { analizarTodosLosDistritos } = require("./helpers/iaDistritos");
+const { compararFodaConIA } = require("./helpers/iaFodaComparar");
+
 
 app.use(cors());
 app.use(express.json());
@@ -78,6 +80,58 @@ app.put('/api/actividades/:id', (req, res) => {
   db.query(sql, [titulo, descripcion, tipo, estado, fecha_evento, distrito, responsable, req.params.id],
     (err) => err ? res.status(500).send(err) : res.json({ message: "Actividad actualizada" })
   );
+});
+
+
+// POST /api/candidatos/foda-comparar
+// body: { baseId: number, compareIds: number[] }
+app.post("/api/candidatos/foda-comparar", (req, res) => {
+  const { baseId, compareIds } = req.body;
+
+  if (!baseId || !Array.isArray(compareIds)) {
+    return res.status(400).json({ message: "baseId y compareIds[] son requeridos" });
+  }
+
+  const ids = [baseId, ...compareIds].map(Number).filter(Boolean);
+  const placeholders = ids.map(() => "?").join(",");
+
+  const sql = `
+    SELECT id, nombre, sigla
+    FROM candidatos
+    WHERE id IN (${placeholders})
+  `;
+
+  db.query(sql, ids, async (err, rows) => {
+    if (err) return res.status(500).send(err);
+
+    const baseRow = rows.find((r) => Number(r.id) === Number(baseId));
+    if (!baseRow) return res.status(404).json({ message: "Candidato base no encontrado" });
+
+    const compRows = rows.filter((r) => Number(r.id) !== Number(baseId));
+    if (!compRows.length) return res.status(400).json({ message: "No hay candidatos para comparar" });
+
+    try {
+      // Generar FODA para base y competidores (en paralelo)
+      const baseFoda = await generarFodaCandidato(baseRow.nombre, baseRow.sigla);
+
+      const compFodas = await Promise.all(
+        compRows.map(async (c) => {
+          const f = await generarFodaCandidato(c.nombre, c.sigla);
+          return { candidato: c, ...f };
+        })
+      );
+
+      const result = await compararFodaConIA(
+        { candidato: baseRow, ...baseFoda },
+        compFodas
+      );
+
+      res.json(result);
+    } catch (e) {
+      console.error("❌ Error comparando FODA:", e);
+      res.status(500).json({ message: "Error al comparar FODA con IA" });
+    }
+  });
 });
 
 // Eliminar actividad
@@ -651,32 +705,7 @@ app.post("/api/candidatos/sugerir-habilidades", async (req, res) => {
 
 
 // --- FODA IA por candidato ---
-app.get('/api/candidatos/:id/foda', (req, res) => {
-  const { id } = req.params;
 
-  const sql = `
-    SELECT id, nombre, sigla
-    FROM candidatos
-    WHERE id = ?
-  `;
-
-  db.query(sql, [id], async (err, rows) => {
-    if (err) return res.status(500).send(err);
-    if (!rows || rows.length === 0) {
-      return res.status(404).json({ message: "Candidato no encontrado" });
-    }
-
-    const cand = rows[0];
-
-    try {
-      const resultadoFoda = await generarFodaCandidato(cand.nombre, cand.sigla);
-      res.json(resultadoFoda);
-    } catch (e) {
-      console.error("❌ Error generando FODA:", e);
-      res.status(500).json({ message: "Error al generar FODA" });
-    }
-  });
-});
 
 
 // 🔍 FODA IA POR CANDIDATO
