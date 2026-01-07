@@ -9,7 +9,8 @@ const { llamarModeloIA, ARQUETIPOS } = require('./helpers/ia');
 const { generarFodaCandidato } = require('./helpers/iaFoda');
 const { analizarTodosLosDistritos } = require("./helpers/iaDistritos");
 const { compararFodaConIA } = require("./helpers/iaFodaComparar");
-
+const { analizarRedesConIA } = require("./helpers/iaRedesAnalisis");
+const { calcEng, mode } = require("./helpers/redesPosicionamiento");
 
 app.use(cors());
 app.use(express.json());
@@ -743,6 +744,8 @@ app.get('/api/candidatos/:id/foda', (req, res) => {
   );
 });
 
+
+
 // 🔍 Análisis de distritos con IA usando SOLO los 15 "Distrito X"
 app.get("/api/analisis-distritos", (req, res) => {
   const sql = `
@@ -777,5 +780,379 @@ app.get("/api/analisis-distritos", (req, res) => {
     }
   });
 });
+
+//analisis redes
+
+app.post("/api/candidatos/redes-analisis", (req, res) => {
+  const { baseId, compareIds = [] } = req.body;
+
+  if (!baseId) {
+    return res.status(400).json({ message: "baseId es requerido" });
+  }
+
+  const ids = [baseId, ...compareIds].map(Number).filter(Boolean);
+  const placeholders = ids.map(() => "?").join(",");
+
+  const sql = `
+    SELECT id, nombre, sigla
+    FROM candidatos
+    WHERE id IN (${placeholders})
+  `;
+
+  db.query(sql, ids, async (err, rows) => {
+    if (err) return res.status(500).send(err);
+
+    const baseRow = rows.find((r) => Number(r.id) === Number(baseId));
+    if (!baseRow) {
+      return res.status(404).json({ message: "Candidato base no encontrado" });
+    }
+
+    const compRows = rows.filter((r) => Number(r.id) !== Number(baseId));
+
+    try {
+      const result = await analizarRedesConIA(baseRow, compRows);
+      res.json(result);
+    } catch (e) {
+      console.error("❌ Error analizando redes:", e);
+      res.status(500).json({ message: "Error al generar análisis de redes con IA" });
+    }
+  });
+});
+
+
+// body: { basePageId, comparePageIds: [..], days: 30 }
+app.post("/api/redes/posicionamiento", async (req, res) => {
+  try {
+    const { basePageId, comparePageIds = [], days = 30 } = req.body || {};
+    if (!basePageId) return res.status(400).json({ error: "basePageId requerido" });
+
+    const ids = [Number(basePageId), ...comparePageIds.map(Number)].filter(Boolean);
+    const since = new Date(Date.now() - Number(days) * 24 * 60 * 60 * 1000);
+    const sinceStr = since.toISOString().slice(0, 19).replace("T", " ");
+
+    // 1) páginas
+    const [paginas] = await db.promise().query(
+      `SELECT * FROM redes_paginas WHERE id IN (${ids.map(() => "?").join(",")})`,
+      ids
+    );
+
+    // 2) posts del periodo
+    const [posts] = await db.promise().query(
+      `SELECT * FROM redes_posts
+       WHERE pagina_id IN (${ids.map(() => "?").join(",")})
+         AND (publicado_en IS NULL OR publicado_en >= ?)
+       ORDER BY capturado_en DESC`,
+      [...ids, sinceStr]
+    );
+
+    // 3) snapshot seguidores (último disponible)
+    const [snaps] = await db.promise().query(
+      `SELECT s.*
+       FROM redes_snapshot_pagina s
+       JOIN (
+         SELECT pagina_id, MAX(fecha) AS max_fecha
+         FROM redes_snapshot_pagina
+         WHERE pagina_id IN (${ids.map(() => "?").join(",")})
+         GROUP BY pagina_id
+       ) t ON t.pagina_id = s.pagina_id AND t.max_fecha = s.fecha`,
+      ids
+    );
+
+    const snapByPage = Object.fromEntries(snaps.map(s => [s.pagina_id, s]));
+
+    const group = {};
+    for (const p of posts) {
+      const pid = p.pagina_id;
+      if (!group[pid]) group[pid] = [];
+      group[pid].push(p);
+    }
+
+    const resumen = paginas.map(pg => {
+      const arr = group[pg.id] || [];
+      const engs = arr.map(a => calcEng(a));
+      const engTotal = engs.reduce((a,b) => a+b, 0);
+      const engAvg = arr.length ? Math.round(engTotal / arr.length) : 0;
+      const tipoDom = arr.length ? mode(arr.map(x => x.tipo || "otro")) : "otro";
+
+      const seguidores = snapByPage[pg.id]?.seguidores ?? null;
+      const engRate = (seguidores && seguidores > 0) ? +(engTotal / seguidores).toFixed(4) : null;
+
+      const topPosts = arr
+        .map(x => ({ ...x, engagement: calcEng(x) }))
+        .sort((a,b) => b.engagement - a.engagement)
+        .slice(0, 10);
+
+      return {
+        pagina: pg,
+        periodo_dias: Number(days),
+        posts: arr.length,
+        engagement_total: engTotal,
+        engagement_promedio: engAvg,
+        engagement_rate: engRate,
+        tipo_dominante: tipoDom,
+        seguidores,
+        top_posts: topPosts
+      };
+    });
+
+    // ranking simple
+    const rankingEng = [...resumen].sort((a,b) => b.engagement_total - a.engagement_total)
+      .map(x => ({ pagina: x.pagina.nombre, engagement_total: x.engagement_total }));
+
+    const rankingRate = [...resumen]
+      .filter(x => x.engagement_rate !== null)
+      .sort((a,b) => b.engagement_rate - a.engagement_rate)
+      .map(x => ({ pagina: x.pagina.nombre, engagement_rate: x.engagement_rate }));
+
+    return res.json({
+      modo: "sin_ia",
+      basePageId: Number(basePageId),
+      comparePageIds: comparePageIds.map(Number),
+      resumen,
+      comparacion: { ranking_engagement_total: rankingEng, ranking_engagement_rate: rankingRate }
+    });
+  } catch (err) {
+    console.error("❌ /api/redes/posicionamiento", err);
+    res.status(500).json({ error: "Error interno", detalle: String(err?.message || err) });
+  }
+});
+
+// listar páginas
+app.get("/api/redes/paginas", async (req, res) => {
+  try {
+    const [rows] = await db.promise().query(
+      "SELECT * FROM redes_paginas WHERE activo=1 ORDER BY id DESC"
+    );
+    res.json(rows);
+  } catch (e) {
+    console.error("❌ GET /api/redes/paginas", e);
+    res.status(500).json({ error: "Error interno" });
+  }
+});
+
+// crear página
+app.post("/api/redes/paginas", async (req, res) => {
+  try {
+    const p = req.body || {};
+    if (!p.nombre || !p.url) return res.status(400).json({ error: "nombre y url son requeridos" });
+
+    const plataforma = p.plataforma || "facebook";
+    const categoria = p.categoria || null;
+    const es_admin = p.es_admin ? 1 : 0;
+
+    const [r] = await db.promise().query(
+      `INSERT INTO redes_paginas (nombre, plataforma, url, categoria, es_admin)
+       VALUES (?, ?, ?, ?, ?)`,
+      [p.nombre, plataforma, p.url, categoria, es_admin]
+    );
+
+    res.json({ ok: true, id: r.insertId });
+  } catch (e) {
+    console.error("❌ POST /api/redes/paginas", e);
+    res.status(500).json({ error: "Error interno" });
+  }
+});
+
+
+/* =========================
+   POSTS (CAPTURAS MANUALES)
+========================= */
+
+// crear post/captura
+app.post("/api/redes/posts", async (req, res) => {
+  try {
+    const p = req.body || {};
+    if (!p.pagina_id || !p.post_url) {
+      return res.status(400).json({ error: "pagina_id y post_url son requeridos" });
+    }
+
+    await db.promise().query(
+      `INSERT INTO redes_posts
+        (pagina_id, post_url, publicado_en, tipo, texto_corto, reacciones, comentarios, compartidos)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        Number(p.pagina_id),
+        p.post_url,
+        p.publicado_en || null,
+        p.tipo || "otro",
+        p.texto_corto || null,
+        Number(p.reacciones || 0),
+        Number(p.comentarios || 0),
+        Number(p.compartidos || 0),
+      ]
+    );
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("❌ POST /api/redes/posts", e);
+    res.status(500).json({ error: "Error interno" });
+  }
+});
+
+// listar posts (por pagina)
+app.get("/api/redes/posts", async (req, res) => {
+  try {
+    const paginaId = Number(req.query.paginaId || 0);
+    const limit = Math.min(Math.max(Number(req.query.limit || 50), 1), 200);
+    if (!paginaId) return res.status(400).json({ error: "paginaId requerido" });
+
+    const [rows] = await db.promise().query(
+      `SELECT * FROM redes_posts
+       WHERE pagina_id=?
+       ORDER BY COALESCE(publicado_en, capturado_en) DESC
+       LIMIT ?`,
+      [paginaId, limit]
+    );
+    res.json(rows);
+  } catch (e) {
+    console.error("❌ GET /api/redes/posts", e);
+    res.status(500).json({ error: "Error interno" });
+  }
+});
+
+// eliminar post
+app.delete("/api/redes/posts/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    await db.promise().query("DELETE FROM redes_posts WHERE id=?", [id]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("❌ DELETE /api/redes/posts/:id", e);
+    res.status(500).json({ error: "Error interno" });
+  }
+});
+
+
+/* =========================
+   SNAPSHOT (SEGUIDORES)
+========================= */
+
+app.post("/api/redes/snapshot", async (req, res) => {
+  try {
+    const s = req.body || {};
+    if (!s.pagina_id || !s.fecha) return res.status(400).json({ error: "pagina_id y fecha requeridos" });
+
+    await db.promise().query(
+      `INSERT INTO redes_snapshot_pagina (pagina_id, fecha, seguidores, me_gusta, notas)
+       VALUES (?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE seguidores=VALUES(seguidores), me_gusta=VALUES(me_gusta), notas=VALUES(notas)`,
+      [
+        Number(s.pagina_id),
+        s.fecha,
+        s.seguidores ?? null,
+        s.me_gusta ?? null,
+        s.notas ?? null,
+      ]
+    );
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("❌ POST /api/redes/snapshot", e);
+    res.status(500).json({ error: "Error interno" });
+  }
+});
+
+
+/* =========================
+   POSICIONAMIENTO (SIN IA)
+========================= */
+// body: { basePageId, comparePageIds:[], days:30 }
+app.post("/api/redes/posicionamiento", async (req, res) => {
+  try {
+    const { basePageId, comparePageIds = [], days = 30 } = req.body || {};
+    if (!basePageId) return res.status(400).json({ error: "basePageId requerido" });
+
+    const ids = [Number(basePageId), ...comparePageIds.map(Number)].filter(Boolean);
+    const since = new Date(Date.now() - Number(days) * 24 * 60 * 60 * 1000);
+    const sinceStr = since.toISOString().slice(0, 19).replace("T", " ");
+
+    // páginas
+    const [paginas] = await db.promise().query(
+      `SELECT * FROM redes_paginas WHERE id IN (${ids.map(() => "?").join(",")})`,
+      ids
+    );
+
+    // posts del periodo
+    const [posts] = await db.promise().query(
+      `SELECT * FROM redes_posts
+       WHERE pagina_id IN (${ids.map(() => "?").join(",")})
+       AND (publicado_en IS NULL OR publicado_en >= ?)
+       ORDER BY COALESCE(publicado_en, capturado_en) DESC`,
+      [...ids, sinceStr]
+    );
+
+    // último snapshot por página
+    const [snaps] = await db.promise().query(
+      `SELECT s.*
+       FROM redes_snapshot_pagina s
+       JOIN (
+         SELECT pagina_id, MAX(fecha) AS max_fecha
+         FROM redes_snapshot_pagina
+         WHERE pagina_id IN (${ids.map(() => "?").join(",")})
+         GROUP BY pagina_id
+       ) t ON t.pagina_id=s.pagina_id AND t.max_fecha=s.fecha`,
+      ids
+    );
+    const snapByPage = Object.fromEntries(snaps.map(s => [s.pagina_id, s]));
+
+    // agrupar posts
+    const group = {};
+    for (const p of posts) {
+      if (!group[p.pagina_id]) group[p.pagina_id] = [];
+      group[p.pagina_id].push(p);
+    }
+
+    const resumen = paginas.map(pg => {
+      const arr = group[pg.id] || [];
+      const engTotal = arr.reduce((acc, x) => acc + calcEng(x), 0);
+      const engAvg = arr.length ? Math.round(engTotal / arr.length) : 0;
+      const tipoDom = arr.length ? mode(arr.map(x => x.tipo || "otro")) : "otro";
+
+      const seguidores = snapByPage[pg.id]?.seguidores ?? null;
+      const engRate = (seguidores && seguidores > 0) ? +(engTotal / seguidores).toFixed(4) : null;
+
+      const topPosts = arr
+        .map(x => ({ ...x, engagement: calcEng(x) }))
+        .sort((a,b) => b.engagement - a.engagement)
+        .slice(0, 10);
+
+      return {
+        pagina: pg,
+        periodo_dias: Number(days),
+        posts: arr.length,
+        engagement_total: engTotal,
+        engagement_promedio: engAvg,
+        engagement_rate: engRate,
+        tipo_dominante: tipoDom,
+        seguidores,
+        top_posts: topPosts
+      };
+    });
+
+    const rankingEng = [...resumen]
+      .sort((a,b) => b.engagement_total - a.engagement_total)
+      .map(x => ({ pagina: x.pagina.nombre, engagement_total: x.engagement_total }));
+
+    const rankingRate = [...resumen]
+      .filter(x => x.engagement_rate !== null)
+      .sort((a,b) => b.engagement_rate - a.engagement_rate)
+      .map(x => ({ pagina: x.pagina.nombre, engagement_rate: x.engagement_rate }));
+
+    res.json({
+      modo: "sin_ia",
+      basePageId: Number(basePageId),
+      comparePageIds: comparePageIds.map(Number),
+      resumen,
+      comparacion: {
+        ranking_engagement_total: rankingEng,
+        ranking_engagement_rate: rankingRate
+      }
+    });
+  } catch (e) {
+    console.error("❌ POST /api/redes/posicionamiento", e);
+    res.status(500).json({ error: "Error interno", detalle: String(e?.message || e) });
+  }
+});
+
 
 app.listen(PORT, () => console.log(`🚀 Server en http://localhost:${PORT}`));

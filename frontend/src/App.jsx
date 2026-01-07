@@ -4,11 +4,19 @@ import AnalisisDatos from './components/AnalisisDatos';
 import Competidores from './components/Competidores';
 import Catalogos from './components/Catalogos';
 import Login from './components/Login';
-import { LayoutDashboard, BarChart3, Users, LogOut, Menu, User, Database , LayoutTemplate} from 'lucide-react';
+import { LayoutDashboard, BarChart3, Users, LogOut, Menu, User, Database , LayoutTemplate,Share2} from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import { Button, Nav, Navbar } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import Candidatos from './components/Candidatos';
+import AnalisisRedes from "./components/AnalisisRedes";
+import RedesCargaPosts from "./components/RedesCargaPosts";
+import AnalisisRedesSinIA from "./components/AnalisisRedesSinIA";
+import AnalisisRedesContainer from "./components/AnalisisRedesContainer";
+
+
+
+
 import { UserCheck } from 'lucide-react'; // opcional, si lo quieres
 import './App.css'; // Importamos nuestro CSS Grid
 
@@ -89,6 +97,17 @@ function App() {
           </Nav.Item>
         </Nav>
 
+        <Nav.Item className="mb-1">
+        <Nav.Link
+          active={vistaActual === 'analisis_redes'}
+          onClick={() => setVistaActual('analisis_redes')}
+          className="text-white d-flex align-items-center gap-3 py-2 px-3 rounded hover-bright"
+        >
+          <Share2 size={20} /> <span className="text-nowrap">Análisis de redes</span>
+        </Nav.Link>
+      </Nav.Item>
+
+
         
         <div className="p-3 border-top border-secondary bg-dark bg-opacity-50">
             <div className="d-flex align-items-center gap-2 mb-3">
@@ -119,6 +138,8 @@ function App() {
                   {vistaActual === 'competidores' && 'Radar de Competencia'}
                   {vistaActual === 'catalogos' && 'Catálogos Municipales'}
                   {vistaActual === 'candidatos' && 'Simulación de Candidato'}
+                  {vistaActual === 'analisis_redes' && 'Análisis de redes'}
+
                </h5>
            </div>
         </Navbar>
@@ -131,6 +152,8 @@ function App() {
             {vistaActual === 'competidores' && <Competidores />}
             {vistaActual === 'catalogos' && <Catalogos />}
               {vistaActual === 'candidatos' && <Candidatos />}
+              {vistaActual === 'analisis_redes' && <AnalisisRedesContainer />}
+
         </div>
       </div>
     </div>
